@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { isFirebaseConfigured, API_BASE_URL } from '../utils/firebaseService';
+import { isFirebaseConfigured, API_BASE_URL } from '../utils/backendService';
 import { 
   Users, 
   Cpu, 

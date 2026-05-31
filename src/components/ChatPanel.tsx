@@ -6,7 +6,7 @@ import {
   sendChatMessage, 
   subscribeToChatMessage, 
   subscribeToChatHistory 
-} from '../utils/firebaseService';
+} from '../utils/backendService';
 import { AVATARS } from './LobbyViews';
 
 interface ChatPanelProps {

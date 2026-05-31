@@ -39,7 +39,7 @@ import {
   subscribeToRoom,
   subscribeToPrivateHand,
   API_BASE_URL
-} from './utils/firebaseService';
+} from './utils/backendService';
 import { CardView } from './components/CardView';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { LobbyViews, OnlineWaitingLobby, AVATARS } from './components/LobbyViews';
