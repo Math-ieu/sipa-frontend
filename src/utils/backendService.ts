@@ -224,3 +224,78 @@ export function subscribeToChatHistory(callback: (history: ChatMessage[]) => voi
     chatHistorySubscribers.delete(callback);
   };
 }
+
+/**
+ * Register a new user with password and avatar (including anti-bot honeypot check)
+ */
+export async function registerUser(username: string, password: string, avatarId: string, honeypotValue: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password, avatarId, email_confirm: honeypotValue })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error || "Erreur d'inscription");
+  }
+
+  return await response.json();
+}
+
+/**
+ * Log in an existing user
+ */
+export async function loginUser(username: string, password: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error || "Erreur de connexion");
+  }
+
+  return await response.json();
+}
+
+/**
+ * Fetch the logged-in user profile using session token
+ */
+export async function getMe(token: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error || "Session invalide");
+  }
+
+  return await response.json();
+}
+
+/**
+ * Log out the current user, destroying their session
+ */
+export async function logoutUser(token: string): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+  } catch (err) {
+    console.error("Logout request failed:", err);
+  }
+}

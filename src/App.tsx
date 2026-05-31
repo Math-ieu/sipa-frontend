@@ -38,12 +38,15 @@ import {
   resetOnlineScores,
   subscribeToRoom,
   subscribeToPrivateHand,
-  API_BASE_URL
+  API_BASE_URL,
+  getMe,
+  logoutUser
 } from './utils/backendService';
 import { CardView } from './components/CardView';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { LobbyViews, OnlineWaitingLobby, AVATARS } from './components/LobbyViews';
 import { ChatPanel } from './components/ChatPanel';
+import AuthPage from './components/AuthPage';
 import { sound } from './utils/sound';
 import { 
   Info, 
@@ -86,6 +89,29 @@ export default function App() {
 
   const [myPlayerId, setMyPlayerId] = useState<string>('');
   const [onlinePrivateHand, setOnlinePrivateHand] = useState<Card[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; avatarId: string } | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
+  // Authentication callbacks
+  const handleLogin = (user: { id: string; username: string; avatarId: string }, token: string) => {
+    localStorage.setItem('sipa_auth_token', token);
+    localStorage.setItem('sipa_local_player_id', user.id);
+    localStorage.setItem('sipa_player_pseudo', user.username);
+    setMyPlayerId(user.id);
+    setCurrentUser(user);
+  };
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem('sipa_auth_token');
+    if (token) {
+      await logoutUser(token);
+    }
+    localStorage.removeItem('sipa_auth_token');
+    localStorage.removeItem('sipa_local_player_id');
+    localStorage.removeItem('sipa_player_pseudo');
+    localStorage.removeItem('sipa_guest_player_id');
+    setCurrentUser(null);
+  };
   
   // UI states
   const [isMuted, setIsMuted] = useState(false);
@@ -108,11 +134,29 @@ export default function App() {
     sound.setMuted(isMuted);
   }, [isMuted]);
 
-  // Load / Setup unique player identities
+  // Load / Setup unique player identities and sessions
   useEffect(() => {
     const setupIdentity = async () => {
-      const generatedId = await ensureAuthenticated();
-      setMyPlayerId(generatedId);
+      const token = localStorage.getItem('sipa_auth_token');
+      if (token) {
+        try {
+          const data = await getMe(token);
+          if (data && data.user) {
+            setCurrentUser(data.user);
+            setMyPlayerId(data.user.id);
+            localStorage.setItem('sipa_local_player_id', data.user.id);
+            localStorage.setItem('sipa_player_pseudo', data.user.username);
+            setIsAuthLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to restore session:", err);
+          localStorage.removeItem('sipa_auth_token');
+        }
+      }
+
+      setCurrentUser(null);
+      setIsAuthLoading(false);
     };
     setupIdentity();
   }, []);
@@ -722,6 +766,26 @@ export default function App() {
     );
   };
 
+  // 1. Loading Splash Screen
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-mesh text-slate-100 flex flex-col items-center justify-center selection:bg-blue-500 relative">
+        <div className="absolute top-[30%] left-[30%] w-[250px] h-[250px] bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="glass p-8 max-w-xs w-full text-center space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-2xl">
+          <div className="text-4xl font-black font-sans tracking-tighter text-white animate-pulse">SIPA</div>
+          <div className="flex items-center justify-center gap-2 text-xs font-mono text-slate-400">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-400" /> Chargement de la session...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Mandatory Authentication Gate
+  if (!currentUser) {
+    return <AuthPage onLogin={handleLogin} />;
+  }
+
   // Handle welcome lobby
   if (gameState.status === 'lobby') {
     if (gameState.gameMode === 'online' && gameState.roomId) {
@@ -746,6 +810,9 @@ export default function App() {
     return (
       <div className="min-h-screen bg-mesh text-slate-150 flex flex-col justify-between selection:bg-blue-500 relative">
         <LobbyViews
+          currentUser={currentUser}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
           onJoinLocalAI={startLocalAIGame}
           onJoinPassAndPlay={startPassAndPlayGame}
           onCreateOnline={handleCreateOnlineRoom}

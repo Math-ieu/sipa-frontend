@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { isFirebaseConfigured, API_BASE_URL } from '../utils/backendService';
+import { isFirebaseConfigured, API_BASE_URL, registerUser, loginUser } from '../utils/backendService';
 import { 
   Users, 
   Cpu, 
@@ -16,10 +16,16 @@ import {
   Copy, 
   Check, 
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Lock,
+  LogOut,
+  Key
 } from 'lucide-react';
 
 interface LobbyViewsProps {
+  currentUser: { id: string; username: string; avatarId: string } | null;
+  onLogin: (user: { id: string; username: string; avatarId: string }, token: string) => void;
+  onLogout: () => void;
   onJoinLocalAI: (opts: { pseudo: string; avatarId: string; opponentCount: number }) => void;
   onJoinPassAndPlay: (opts: { pseudo: string; avatarId: string; playerCount: number }) => void;
   onCreateOnline: (opts: { pseudo: string; avatarId: string }) => Promise<void> | void;
@@ -33,43 +39,52 @@ export const AVATARS = [
   { id: 'av4', symbol: '✙', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
   { id: 'av5', symbol: '✺', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   { id: 'av6', symbol: '✿', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
-  { id: 'av7', symbol: '⚔', color: 'bg-white/10 text-slate-100 border-white/25' },
   { id: 'av8', symbol: '◈', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
 ];
 
 export function LobbyViews({
+  currentUser,
+  onLogin,
+  onLogout,
   onJoinLocalAI,
   onJoinPassAndPlay,
   onCreateOnline,
   onJoinOnline,
 }: LobbyViewsProps) {
   const [pseudo, setPseudo] = useState(() => {
-    return localStorage.getItem('sipa_player_pseudo') || 'Joueur ' + Math.floor(100 + Math.random() * 900);
+    return currentUser?.username || 'Joueur';
   });
-  const [selectedAvatarId, setSelectedAvatarId] = useState('av1');
+  const [selectedAvatarId, setSelectedAvatarId] = useState(() => {
+    return currentUser?.avatarId || 'av1';
+  });
   const [mode, setMode] = useState<'root' | 'ai_config' | 'pass_config' | 'online_join'>('root');
-  
+
+  // Sync profile when currentUser updates
+  useEffect(() => {
+    if (currentUser) {
+      setPseudo(currentUser.username);
+      setSelectedAvatarId(currentUser.avatarId);
+    }
+  }, [currentUser]);
+
   // Dashboard & Statistics States
-  const [playerId] = useState(() => {
-    return localStorage.getItem('sipa_local_player_id') || '';
-  });
+  const activePlayerId = currentUser?.id || '';
   const [stats, setStats] = useState<{ totalMatches: number; wins: number; losses: number; winRate: number } | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
 
   const fetchDashboardData = async () => {
-    const storedPlayerId = localStorage.getItem('sipa_local_player_id');
-    if (!storedPlayerId) return;
+    if (!activePlayerId) return;
 
     setIsLoadingDashboard(true);
     try {
-      const statsRes = await fetch(`${API_BASE_URL}/api/users/${storedPlayerId}/stats`);
+      const statsRes = await fetch(`${API_BASE_URL}/api/users/${activePlayerId}/stats`);
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
       }
 
-      const matchesRes = await fetch(`${API_BASE_URL}/api/users/${storedPlayerId}/matches`);
+      const matchesRes = await fetch(`${API_BASE_URL}/api/users/${activePlayerId}/matches`);
       if (matchesRes.ok) {
         const matchesData = await matchesRes.json();
         setMatches(matchesData);
@@ -85,7 +100,7 @@ export function LobbyViews({
     if (mode === 'root') {
       fetchDashboardData();
     }
-  }, [mode]);
+  }, [mode, currentUser]);
   
   // Game count variables
   const [aiCount, setAiCount] = useState<number>(3); // Default 3 (4 players total)
@@ -95,13 +110,6 @@ export function LobbyViews({
   const [enteredRoomId, setEnteredRoomId] = useState('');
   const [onlineError, setOnlineError] = useState('');
   const [onlineLoading, setOnlineLoading] = useState(false);
-
-  // Save pseudo
-  const handlePseudoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.substring(0, 16);
-    setPseudo(val);
-    localStorage.setItem('sipa_player_pseudo', val);
-  };
 
   const handleOnlineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,47 +164,36 @@ export function LobbyViews({
         <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[150px] h-[150px] bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
 
-        {/* Step 1: Human Configuration */}
+        {/* Step 1: Human Configuration (Static Premium Card) */}
         <div className="space-y-6 mb-8 pb-8 border-b border-white/10 relative z-10">
-          <div>
-            <label className="block text-xs font-mono font-bold text-slate-350 uppercase tracking-widest mb-2">
-              Votre Pseudo
-            </label>
-            <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                value={pseudo}
-                onChange={handlePseudoChange}
-                placeholder="Ex: Alexandre"
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition placeholder:text-slate-500"
-              />
+          <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-transparent border border-blue-500/20 p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl shadow-blue-950/20">
+            <div className="flex items-center gap-4 text-left">
+              {(() => {
+                const myAv = AVATARS.find(av => av.id === selectedAvatarId) || AVATARS[0];
+                return (
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl font-bold border-2 ring-4 ring-blue-550/20 border-blue-400 ${myAv.color} shadow-lg shadow-blue-500/10`}>
+                    {myAv.symbol}
+                  </div>
+                );
+              })()}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg font-black text-white tracking-wide">{pseudo}</span>
+                  <span className="bg-blue-550/25 text-blue-300 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[8.5px] font-black font-mono tracking-widest uppercase shadow-md">
+                    MEMBRE SIPA 👑
+                  </span>
+                </div>
+                <span className="text-xs font-mono text-slate-400 block">Compte sécurisé & connecté</span>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono font-bold text-slate-350 uppercase tracking-widest mb-3">
-              Choisissez votre Sceau
-            </label>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5">
-              {AVATARS.map((av) => (
-                <button
-                  key={av.id}
-                  type="button"
-                  onClick={() => setSelectedAvatarId(av.id)}
-                  className={`
-                    aspect-square rounded-xl text-xl font-bold flex items-center justify-center transition-all duration-200 border-2
-                    ${av.color}
-                    ${selectedAvatarId === av.id 
-                      ? 'border-blue-400 ring-4 ring-blue-500/35 scale-105' 
-                      : 'opacity-50 hover:opacity-100 hover:scale-102 hover:border-white/20'
-                    }
-                  `}
-                >
-                  {av.symbol}
-                </button>
-              ))}
-            </div>
+            
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-red-550/15 hover:border-red-500/25 text-slate-350 hover:text-red-300 text-xs font-bold transition duration-200 cursor-pointer shadow-md"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Déconnexion
+            </button>
           </div>
         </div>
 
@@ -328,7 +325,7 @@ export function LobbyViews({
                 ) : (
                   <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1 custom-scrollbar">
                     {matches.map((m) => {
-                      const isUserWinner = m.winnerId === playerId;
+                      const isUserWinner = m.winnerId === activePlayerId;
                       const formattedDate = new Date(m.createdAt).toLocaleDateString('fr-FR', {
                         day: '2-digit',
                         month: 'short',
@@ -336,7 +333,7 @@ export function LobbyViews({
                         minute: '2-digit'
                       });
                       
-                      const opponents = m.players.filter((p: any) => p.playerId !== playerId);
+                      const opponents = m.players.filter((p: any) => p.playerId !== activePlayerId);
                       
                       return (
                         <div
@@ -377,7 +374,7 @@ export function LobbyViews({
                           <div className="text-right">
                             <span className="text-xs font-mono font-bold text-slate-200">
                               {(() => {
-                                const myScore = m.players.find((p: any) => p.playerId === playerId)?.score || 0;
+                                const myScore = m.players.find((p: any) => p.playerId === activePlayerId)?.score || 0;
                                 const opponentsScores = opponents.map((p: any) => p.score);
                                 const maxOpponentScore = opponentsScores.length > 0 ? Math.max(...opponentsScores) : 0;
                                 return `${myScore} - ${maxOpponentScore} pts`;
