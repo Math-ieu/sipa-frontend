@@ -22,6 +22,8 @@ export function ChatPanel({ roomId, myPlayerId, players }: ChatPanelProps) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
   const me = players.find(p => p.id === myPlayerId);
 
   // Sync scroll to bottom
@@ -54,7 +56,7 @@ export function ChatPanel({ roomId, myPlayerId, players }: ChatPanelProps) {
         return [...prev, newMsg];
       });
 
-      if (!isOpen && newMsg.senderId !== myPlayerId) {
+      if (!isOpenRef.current && newMsg.senderId !== myPlayerId) {
         setUnreadCount(c => c + 1);
       }
     });
@@ -63,7 +65,7 @@ export function ChatPanel({ roomId, myPlayerId, players }: ChatPanelProps) {
       unsubHistory();
       unsubMsg();
     };
-  }, [roomId, isOpen, myPlayerId]);
+  }, [roomId, myPlayerId]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
