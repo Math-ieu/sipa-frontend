@@ -560,52 +560,6 @@ export default function App() {
           // Play winner celebration sound
           sound.playRoundVictory();
 
-          // Vérification de la victoire finale à 11 points en local
-          const matchWinner = updatedPlayersWithNewScore.find(p => p.score >= 11);
-          let finalWinnerId: string | null = null;
-          if (matchWinner) {
-            finalWinnerId = matchWinner.id;
-            
-            // Sauvegarder automatiquement en base de données le match local fini
-            if (latestState.gameMode === 'ai') {
-              fetch(`${API_BASE_URL}/api/matches/end-local`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  roomId: 'local_ai',
-                  gameMode: 'ai',
-                  players: updatedPlayersWithNewScore.map(p => ({
-                    id: p.id === 'human_id' ? myPlayerId : p.id,
-                    name: p.name,
-                    score: p.score,
-                    isHost: p.id === 'human_id',
-                    isAI: p.isAI,
-                    avatarId: p.avatarId
-                  })),
-                  winnerId: finalWinnerId === 'human_id' ? myPlayerId : finalWinnerId
-                })
-              }).catch(err => console.error('Erreur de sauvegarde DB match local IA :', err));
-            } else if (latestState.gameMode === 'pass_and_play') {
-              fetch(`${API_BASE_URL}/api/matches/end-local`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  roomId: 'local_pass',
-                  gameMode: 'pass_and_play',
-                  players: updatedPlayersWithNewScore.map(p => ({
-                    id: p.id === 'pass_p1' ? myPlayerId : p.id,
-                    name: p.name,
-                    score: p.score,
-                    isHost: p.id === 'pass_p1',
-                    isAI: p.isAI,
-                    avatarId: p.avatarId
-                  })),
-                  winnerId: finalWinnerId === 'pass_p1' ? myPlayerId : finalWinnerId
-                })
-              }).catch(err => console.error('Erreur de sauvegarde DB match local Pass & Play :', err));
-            }
-          }
-
           setGameState(prev => ({
             ...prev,
             players: updatedPlayersWithNewScore,
@@ -613,7 +567,7 @@ export default function App() {
             tricksHistory: updatedTricksHistory,
             lastRoundResult: roundResult,
             status: 'round_end',
-            winnerId: finalWinnerId,
+            winnerId: null,
           }));
           
           setShowRoundSummary(true);
@@ -1460,45 +1414,17 @@ export default function App() {
                   <Award className="w-10 h-10 animate-pulse" />
                 </div>
 
-                {(() => {
-                  const matchWinner = gameState.players.find(p => p.score >= 11);
-                  if (matchWinner) {
-                    return (
-                      <div className="space-y-1">
-                        <span className="text-xs font-mono text-emerald-400 font-bold uppercase tracking-widest animate-pulse flex items-center justify-center gap-1.5">
-                          <Sparkles className="w-4 h-4 text-emerald-400" />
-                          <Trophy className="w-4 h-4 text-amber-400" />
-                          <span>VICTOIRE FINALE DU MATCH</span>
-                          <Trophy className="w-4 h-4 text-amber-400" />
-                          <Sparkles className="w-4 h-4 text-emerald-400" />
-                        </span>
-                        <h3 className="text-3xl font-black text-white leading-none">
-                          Champion Suprême
-                        </h3>
-                        <p className="text-2xl font-black text-amber-400 mt-2 filter drop-shadow-[0_2px_8px_rgba(251,191,36,0.2)]">
-                          {matchWinner.name} !
-                        </p>
-                        <p className="text-xs text-slate-350 italic mt-1 font-medium">
-                          Le score cible de 11 points a été atteint. Le match est terminé !
-                        </p>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="space-y-1">
-                        <span className="text-xs font-mono text-blue-400 font-bold uppercase tracking-widest">
-                          FIN DE MANCHE COMPLÈTE
-                        </span>
-                        <h3 className="text-3xl font-black text-white leading-none">
-                          Vainqueur de la Manche
-                        </h3>
-                        <p className="text-2xl font-black text-amber-400 mt-2 filter drop-shadow-[0_2px_8px_rgba(251,191,36,0.2)]">
-                          {gameState.players.find(p => p.id === gameState.lastRoundResult?.winnerId)?.name} !
-                        </p>
-                      </div>
-                    );
-                  }
-                })()}
+                <div className="space-y-1">
+                  <span className="text-xs font-mono text-blue-400 font-bold uppercase tracking-widest">
+                    FIN DE MANCHE COMPLÈTE
+                  </span>
+                  <h3 className="text-3xl font-black text-white leading-none">
+                    Vainqueur de la Manche
+                  </h3>
+                  <p className="text-2xl font-black text-amber-400 mt-2 filter drop-shadow-[0_2px_8px_rgba(251,191,36,0.2)]">
+                    {gameState.players.find(p => p.id === gameState.lastRoundResult?.winnerId)?.name} !
+                  </p>
+                </div>
 
                 {/* Score Summary math */}
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
@@ -1548,35 +1474,24 @@ export default function App() {
 
                 {/* Action footer */}
                 <div className="pt-4 flex flex-col sm:flex-row gap-2">
-                  {gameState.players.some(p => p.score >= 11) ? (
-                    <button
-                      onClick={handleExitToLobby}
-                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      Enregistrer & Retourner à l'Accueil
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={async () => {
-                          if (gameState.gameMode === 'online') {
-                            await handleOnlineNextRoundDeal();
-                          } else {
-                            dealNextLocalRound();
-                          }
-                        }}
-                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin-reverse" /> Prochaine Manche
-                      </button>
-                      <button
-                        onClick={resetScoresAndRestart}
-                        className="py-3 px-4 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" /> Recommencer
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={async () => {
+                      if (gameState.gameMode === 'online') {
+                        await handleOnlineNextRoundDeal();
+                      } else {
+                        dealNextLocalRound();
+                      }
+                    }}
+                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin-reverse" /> Prochaine Manche
+                  </button>
+                  <button
+                    onClick={resetScoresAndRestart}
+                    className="py-3 px-4 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Recommencer
+                  </button>
                 </div>
 
               </motion.div>
