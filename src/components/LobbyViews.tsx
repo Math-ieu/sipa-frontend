@@ -257,9 +257,7 @@ export function LobbyViews({
         <h1 className="text-6xl md:text-8xl font-black font-sans tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)]">
           SIPA
         </h1>
-        <p className="text-sm md:text-base text-slate-350 mt-2 font-medium max-w-md mx-auto leading-relaxed">
-          Prise de main, mémoire et maîtrise des 7 de fin de manche.
-        </p>
+        
       </div>
 
       {/* Bento Grid Container */}

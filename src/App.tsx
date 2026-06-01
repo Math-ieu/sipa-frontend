@@ -75,7 +75,9 @@ import {
   Check,
   X,
   AlertTriangle,
-  Flag
+  Flag,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 const LOCAL_AI_BOT_INFOS = [
@@ -131,6 +133,7 @@ export default function App() {
   // UI states
   const [isMuted, setIsMuted] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'solarized'>('dark');
   
   // Pass & Play Specific State
   const [showPassOverlay, setShowPassOverlay] = useState(false);
@@ -152,6 +155,23 @@ export default function App() {
   useEffect(() => {
     sound.setMuted(isMuted);
   }, [isMuted]);
+
+  // Load and apply theme
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('sipa_theme') as 'dark' | 'solarized' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'solarized') {
+      document.documentElement.classList.add('solarized-light');
+    } else {
+      document.documentElement.classList.remove('solarized-light');
+    }
+    localStorage.setItem('sipa_theme', theme);
+  }, [theme]);
 
   // Load / Setup unique player identities and sessions
   useEffect(() => {
@@ -965,6 +985,15 @@ export default function App() {
 
     return (
       <div className="min-h-screen bg-mesh text-slate-150 flex flex-col justify-between selection:bg-blue-500 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
+            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition shadow-lg backdrop-blur-md flex items-center justify-center cursor-pointer"
+            title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-200" /> : <Moon className="w-5 h-5 text-slate-300" />}
+          </button>
+        </div>
         <LobbyViews
           currentUser={currentUser}
           onLogin={handleLogin}
@@ -976,7 +1005,7 @@ export default function App() {
         />
         {/* Footer */}
         <div className="py-4 text-center border-t border-white/5 text-slate-500 text-xs font-mono backdrop-blur-md relative z-10">
-          SIPA © 2026 • Design Frosted Glass épuré
+          SIPA © 2026 • Design by Joach27
         </div>
       </div>
     );
@@ -1095,6 +1124,13 @@ export default function App() {
             title={isMuted ? 'Réactiver le son' : 'Couper le son'}
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-450" />}
+          </button>
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
+            className="p-1.5 md:p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
+            title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
+          >
+            {theme === 'dark' ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-200" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-300" />}
           </button>
         </div>
       </header>

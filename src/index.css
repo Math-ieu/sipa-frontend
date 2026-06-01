@@ -7,6 +7,55 @@
   background-color: #020617;
 }
 
+/* SOLARIZED LIGHT OVERRIDES */
+html.solarized-light body {
+  color: #657b83;
+}
+
+html.solarized-light .bg-mesh {
+  background: radial-gradient(circle at 20% 20%, #eee8d5 0%, transparent 45%),
+              radial-gradient(circle at 80% 80%, #dfd9c6 0%, transparent 45%),
+              radial-gradient(circle at 50% 50%, #fdf6e3 0%, transparent 100%) !important;
+  background-color: #fdf6e3 !important;
+}
+
+html.solarized-light .text-slate-100,
+html.solarized-light .text-slate-200,
+html.solarized-light .text-slate-150,
+html.solarized-light .text-white {
+  color: #073642 !important; /* base02 */
+}
+
+html.solarized-light .text-slate-300,
+html.solarized-light .text-slate-400,
+html.solarized-light .text-slate-500 {
+  color: #586e75 !important; /* base01 */
+}
+
+html.solarized-light .bg-white\/5,
+html.solarized-light .bg-white\/10,
+html.solarized-light .bg-white\/15,
+html.solarized-light .bg-black\/40 {
+  background-color: rgba(0, 43, 54, 0.05) !important;
+}
+
+html.solarized-light .border-white\/5,
+html.solarized-light .border-white\/10,
+html.solarized-light .border-white\/15 {
+  border-color: rgba(0, 43, 54, 0.15) !important;
+}
+
+html.solarized-light .bg-slate-950\/85,
+html.solarized-light .bg-slate-950\/40,
+html.solarized-light .bg-slate-900 {
+  background-color: rgba(253, 246, 227, 0.95) !important;
+  border-color: rgba(0, 43, 54, 0.15) !important;
+}
+
+html.solarized-light .bg-slate-800 {
+  background-color: #eee8d5 !important;
+}
+
 @utility glass {
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(16px);
