@@ -75,7 +75,7 @@ export function CardView({
       onClick={canPlay && onClick ? onClick : undefined}
       className={`
         ${sizeClasses[size]} 
-        relative flex flex-col justify-between border select-none transition-all duration-300 rounded-xl
+        relative  border select-none transition-all duration-300 overflow-hidden
         ${isWinning 
           ? 'bg-white border-amber-500 text-slate-900 shadow-[0_0_20px_rgba(245,158,11,0.45)] cursor-pointer ring-2 ring-amber-400/30' 
           : canPlay && onClick
@@ -88,7 +88,7 @@ export function CardView({
       transition={{ type: 'spring', stiffness: 450, damping: 20 }}
     >
       {/* Top Left Indicator */}
-      <div className="self-start flex flex-col items-center p-1 md:p-1.5 leading-none">
+      <div className="absolute top-1 left-1 md:top-1.5 md:left-1.5 flex flex-col items-center leading-none">
         <span className={`font-sans font-black tracking-tight leading-none ${suitColorClass}`}>
           {card.rank}
         </span>
@@ -105,7 +105,7 @@ export function CardView({
       </div>
 
       {/* Bottom Right Indicator */}
-      <div className="flex flex-col items-center p-1 md:p-1.5 leading-none self-end scale-y-[-1] scale-x-[-1]">
+      <div className="absolute bottom-1 right-1 md:bottom-1.5 md:right-1.5 flex flex-col items-center leading-none rotate-180">
         <span className={`font-sans font-black tracking-tight leading-none ${suitColorClass}`}>
           {card.rank}
         </span>
@@ -118,7 +118,7 @@ export function CardView({
 
       {/* Follow-suit Lock Overlay - Clean frosted lock */}
       {!canPlay && (
-        <div className="absolute inset-0 bg-slate-950/40 rounded-xl flex items-center justify-center flex-col gap-1 pointer-events-none backdrop-blur-xs">
+        <div className="absolute inset-0 bg-slate-950/40 rounded-[inherit] flex items-center justify-center flex-col gap-1 pointer-events-none backdrop-blur-xs">
           <Lock className="w-4 h-4 text-white drop-shadow-md" />
           <span className="text-[8px] md:text-[9px] text-white text-center font-bold px-1.5 py-0.5 bg-black/60 rounded uppercase tracking-wider font-mono">
             {suitLabel}
