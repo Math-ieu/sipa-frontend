@@ -77,7 +77,8 @@ import {
   AlertTriangle,
   Flag,
   Sun,
-  Moon
+  Moon,
+  Menu
 } from 'lucide-react';
 
 const LOCAL_AI_BOT_INFOS = [
@@ -133,6 +134,7 @@ export default function App() {
   // UI states
   const [isMuted, setIsMuted] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'solarized'>('dark');
   
   // Pass & Play Specific State
@@ -1024,76 +1026,213 @@ export default function App() {
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-1 md:gap-2">
+        {/* A. Desktop Toolbar view (hidden on mobile, flex on desktop) */}
+        <div className="hidden md:flex items-center gap-2">
           {/* Game Control Buttons */}
           {(gameState.status === 'playing' || gameState.status === 'round_end' || gameState.status === 'paused') && (
             <>
               <button
                 onClick={() => handleGameAction('cancel')}
-                className="p-1.5 md:p-2 rounded-lg bg-red-950/40 border border-red-500/20 hover:bg-red-900/50 hover:border-red-500/40 text-red-400 hover:text-red-300 transition cursor-pointer"
+                className="p-2 rounded-lg bg-red-950/40 border border-red-500/20 hover:bg-red-900/50 hover:border-red-500/40 text-red-400 hover:text-red-300 transition cursor-pointer"
                 title="Annuler la partie"
                 disabled={!!gameState.activeVote || !!localVote}
               >
-                <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <XCircle className="w-4 h-4" />
               </button>
               {gameState.status === 'paused' ? (
                 <button
                   onClick={() => handleGameAction('resume')}
-                  className="p-1.5 md:p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-900/50 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                  className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-900/50 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
                   title="Reprendre la partie"
                   disabled={!!gameState.activeVote || !!localVote}
                 >
-                  <Play className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <Play className="w-4 h-4" />
                 </button>
               ) : (
                 <button
                   onClick={() => handleGameAction('pause')}
-                  className="p-1.5 md:p-2 rounded-lg bg-amber-950/40 border border-amber-500/20 hover:bg-amber-900/50 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition cursor-pointer"
+                  className="p-2 rounded-lg bg-amber-950/40 border border-amber-500/20 hover:bg-amber-900/50 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition cursor-pointer"
                   title="Mettre en pause"
                   disabled={!!gameState.activeVote || !!localVote || gameState.status === 'round_end'}
                 >
-                  <Pause className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <Pause className="w-4 h-4" />
                 </button>
               )}
               <button
                 onClick={() => handleGameAction('end')}
-                className="p-1.5 md:p-2 rounded-lg bg-orange-950/40 border border-orange-500/20 hover:bg-orange-900/50 hover:border-orange-500/40 text-orange-400 hover:text-orange-300 transition cursor-pointer"
+                className="p-2 rounded-lg bg-orange-950/40 border border-orange-500/20 hover:bg-orange-900/50 hover:border-orange-500/40 text-orange-400 hover:text-orange-300 transition cursor-pointer"
                 title="Terminer la partie"
                 disabled={!!gameState.activeVote || !!localVote}
               >
-                <Flag className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <Flag className="w-4 h-4" />
               </button>
               <div className="h-4 w-[1px] bg-white/10" />
             </>
           )}
           <button
             onClick={() => setShowRuleModal(true)}
-            className="p-1.5 md:p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
+            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
             title="Règles du jeu"
           >
-            <Info className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <Info className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="p-1.5 md:p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition flex items-center gap-1 md:gap-1.5 text-[10px] md:text-xs font-semibold cursor-pointer"
+            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
             title="Voir toutes les cartes jouées"
           >
-            <History className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">Historique</span>
+            <History className="w-4 h-4" /> <span className="hidden sm:inline">Historique</span>
           </button>
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className="p-1.5 md:p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
+            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
             title={isMuted ? 'Réactiver le son' : 'Couper le son'}
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-450" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-emerald-450" />}
           </button>
           <button
             onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
-            className="p-1.5 md:p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
+            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
             title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
           >
-            {theme === 'dark' ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-200" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-300" />}
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-200" /> : <Moon className="w-4 h-4 text-slate-300" />}
           </button>
+        </div>
+
+        {/* B. Mobile Toolbar view (flex on mobile, hidden on desktop) */}
+        <div className="flex md:hidden items-center gap-1.5 relative">
+          {/* 1. Stop, Pause/Resume, and Abandon/Forfeit buttons on Mobile */}
+          {(gameState.status === 'playing' || gameState.status === 'round_end' || gameState.status === 'paused') && (
+            <>
+              {/* Stop (Annuler) */}
+              <button
+                onClick={() => handleGameAction('cancel')}
+                className="p-1.5 rounded-lg bg-red-950/40 border border-red-500/20 hover:bg-red-900/50 hover:border-red-500/40 text-red-400 hover:text-red-300 transition cursor-pointer shadow-md"
+                title="Annuler la partie"
+                disabled={!!gameState.activeVote || !!localVote}
+              >
+                <XCircle className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Pause / Resume */}
+              {gameState.status === 'paused' ? (
+                <button
+                  onClick={() => handleGameAction('resume')}
+                  className="p-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-900/50 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition cursor-pointer shadow-md"
+                  title="Reprendre la partie"
+                  disabled={!!gameState.activeVote || !!localVote}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleGameAction('pause')}
+                  className="p-1.5 rounded-lg bg-amber-950/40 border border-amber-500/20 hover:bg-amber-900/50 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition cursor-pointer shadow-md"
+                  title="Mettre en pause"
+                  disabled={!!gameState.activeVote || !!localVote || gameState.status === 'round_end'}
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Abandon (Flag) */}
+              <button
+                onClick={() => handleGameAction('end')}
+                className="p-1.5 rounded-lg bg-orange-950/40 border border-orange-500/20 hover:bg-orange-900/50 hover:border-orange-500/40 text-orange-400 hover:text-orange-300 transition cursor-pointer shadow-md"
+                title="Terminer la partie"
+                disabled={!!gameState.activeVote || !!localVote}
+              >
+                <Flag className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+
+          {/* 2. Theme Toggle Toggle (Dark/Light) */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
+            className="p-1.5 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer shadow-md"
+            title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
+          >
+            {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-200" /> : <Moon className="w-3.5 h-3.5 text-slate-300" />}
+          </button>
+
+          {/* 3. Hamburger Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className={`p-1.5 rounded-lg border transition cursor-pointer relative z-40 shadow-md ${
+              isMobileMenuOpen 
+                ? 'bg-blue-600 border-blue-400 text-white shadow-blue-500/25' 
+                : 'bg-white/10 border-white/10 hover:border-white/20 text-slate-200 hover:text-white'
+            }`}
+            title="Menu d'options"
+          >
+            <Menu className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Hamburger Dropdown Popover */}
+          <AnimatePresence>
+            {isMobileMenuOpen && (
+              <>
+                {/* Backdrop overlay to close when clicking outside */}
+                <div 
+                  className="fixed inset-0 z-30" 
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                />
+                
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.12, ease: "easeOut" }}
+                  className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-slate-950/95 border border-white/10 backdrop-blur-2xl shadow-2xl p-1.5 z-40 flex flex-col gap-1 text-left"
+                >
+                  {/* Rules button */}
+                  <button
+                    onClick={() => {
+                      setShowRuleModal(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg hover:bg-white/5 text-slate-200 hover:text-white transition flex items-center gap-2.5 text-xs font-semibold cursor-pointer"
+                  >
+                    <Info className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Règles du jeu</span>
+                  </button>
+
+                  {/* History button */}
+                  <button
+                    onClick={() => {
+                      setIsHistoryOpen(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg hover:bg-white/5 text-slate-200 hover:text-white transition flex items-center gap-2.5 text-xs font-semibold cursor-pointer"
+                  >
+                    <History className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Historique</span>
+                  </button>
+
+                  {/* Sound button */}
+                  <button
+                    onClick={() => {
+                      setIsMuted(!isMuted);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg hover:bg-white/5 text-slate-200 hover:text-white transition flex items-center gap-2.5 text-xs font-semibold cursor-pointer"
+                  >
+                    {isMuted ? (
+                      <>
+                        <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                        <span>Réactiver le son</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Couper le son</span>
+                      </>
+                    )}
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 
