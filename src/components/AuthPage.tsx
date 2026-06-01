@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { registerUser, loginUser } from '../utils/backendService';
 import { AVATARS } from './LobbyViews';
-import { User, Lock, RefreshCw, Sparkles, Key } from 'lucide-react';
+import { User, Lock, RefreshCw, Sparkles, Key, Eye, EyeOff } from 'lucide-react';
 
 interface AuthPageProps {
   onLogin: (user: { id: string; username: string; avatarId: string }, token: string) => void;
@@ -21,6 +21,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   const [honeypot, setHoneypot] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +59,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
     setUsername('');
     setPassword('');
     setHoneypot('');
+    setShowPassword(false);
   };
 
   return (
@@ -67,7 +69,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       <div className="absolute bottom-[10%] right-[20%] w-[350px] h-[350px] bg-purple-500/10 blur-[100px] rounded-full pointer-events-none" />
 
       {/* Main Page Container */}
-      <div className="w-full max-w-md relative z-10 space-y-8">
+      <div className="w-full max-w-lg relative z-10 space-y-8">
         
         {/* SIPA Branding */}
         <div className="text-center">
@@ -79,18 +81,18 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-pulse" /> Portail d'Accès Sécurisé
           </motion.div>
           
-          <h1 className="text-6xl md:text-7xl font-black font-sans tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)]">
+          <h1 className="text-7xl md:text-8xl font-black font-sans tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)]">
             SIPA
           </h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-2 font-medium max-w-xs mx-auto leading-relaxed">
+          <p className="text-sm md:text-base text-slate-400 mt-2 font-medium max-w-sm mx-auto leading-relaxed">
             Rejoignez l'arène. Connectez-vous pour commencer à jouer.
           </p>
         </div>
 
         {/* Auth Glass Card */}
-        <div className="glass p-6 md:p-8 shadow-2xl relative overflow-hidden text-left">
+        <div className="glass p-8 md:p-10 shadow-2xl relative overflow-hidden text-left">
           {/* Subtle decoration inside card */}
-          <div className="absolute top-0 right-0 w-[120px] h-[120px] bg-blue-500/5 blur-3xl rounded-full pointer-events-none" />
+          <div className="absolute top-0 right-0 w-[180px] h-[180px] bg-blue-500/5 blur-3xl rounded-full pointer-events-none" />
           
           {/* Tab buttons */}
           <div className="flex border-b border-white/5 pb-2.5 mb-6 justify-start gap-5">
@@ -159,16 +161,25 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                 Mot de passe
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   disabled={loading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-xs font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition placeholder:text-slate-550"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-11 text-white text-xs font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition placeholder:text-slate-550"
                 />
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition cursor-pointer select-none"
+                  title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

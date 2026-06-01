@@ -12,7 +12,8 @@ import {
   TrickPlayedCard, 
   TrickResult, 
   RoundResult,
-  Suit
+  Suit,
+  ActiveVote
 } from './types';
 import { 
   createDeck, 
@@ -40,7 +41,9 @@ import {
   subscribeToPrivateHand,
   API_BASE_URL,
   getMe,
-  logoutUser
+  logoutUser,
+  initiateOnlineVote,
+  castOnlineVote
 } from './utils/backendService';
 import { CardView } from './components/CardView';
 import { HistoryDrawer } from './components/HistoryDrawer';
@@ -60,7 +63,19 @@ import {
   User, 
   UserCheck, 
   Sparkles,
-  Award
+  Award,
+  Crown,
+  Bot,
+  Smartphone,
+  Globe,
+  XCircle,
+  Square,
+  Pause,
+  Play,
+  Check,
+  X,
+  AlertTriangle,
+  Flag
 } from 'lucide-react';
 
 const LOCAL_AI_BOT_INFOS = [
@@ -124,6 +139,10 @@ export default function App() {
   // Modals
   const [showRoundSummary, setShowRoundSummary] = useState(false);
   const [showRuleModal, setShowRuleModal] = useState(false);
+
+  // Vote / Game control state (for local AI and P&P modes)
+  const [localVote, setLocalVote] = useState<ActiveVote | null>(null);
+  const [showGameControlConfirm, setShowGameControlConfirm] = useState<{ action: 'cancel' | 'end' | 'pause' | 'resume' } | null>(null);
 
   // References to handle async loops cleanly
   const stateRef = useRef(gameState);
@@ -191,9 +210,15 @@ export default function App() {
   useEffect(() => {
     if (gameState.status !== 'playing' || gameState.gameMode !== 'ai') return;
     
+    // Don't trigger AI if the trick is already complete (waiting for resolution)
+    if (gameState.currentTrickCards.length >= gameState.players.length) return;
+
     // Fetch active player
     const activePlayer = gameState.players[gameState.activePlayerIndex];
     if (!activePlayer || !activePlayer.isAI) return;
+
+    // Ensure active player has cards in hand
+    if (!activePlayer.hand || activePlayer.hand.length === 0) return;
 
     // Trigger AI play after short responsive delay
     const delay = setTimeout(() => {
@@ -201,7 +226,14 @@ export default function App() {
     }, 750);
 
     return () => clearTimeout(delay);
-  }, [gameState.status, gameState.activePlayerIndex, gameState.gameMode, gameState.currentTrickIndex]);
+  }, [
+    gameState.status, 
+    gameState.activePlayerIndex, 
+    gameState.gameMode, 
+    gameState.currentTrickIndex, 
+    gameState.currentTrickCards.length,
+    gameState.players.length
+  ]);
 
 
   // Synchronise le profil du joueur dans la base de données
@@ -399,21 +431,25 @@ export default function App() {
 
     const botIdx = latestState.players.findIndex(p => p.id === botId);
     const bot = latestState.players[botIdx];
-    if (!bot) return;
+    if (!bot || !bot.hand || bot.hand.length === 0) return;
 
     const leadPlay = latestState.currentTrickCards[0];
     const leadCard = leadPlay ? leadPlay.card : null;
 
-    const selectedAICardPayload = selectAICard(bot.hand, latestState.currentTrickCards, leadCard);
-    
-    // Check if sacrifice
-    if (leadPlay && selectedAICardPayload.suit !== leadPlay.card.suit) {
-      sound.playSacrifice();
-    } else {
-      sound.playCardSlide();
-    }
+    try {
+      const selectedAICardPayload = selectAICard(bot.hand, latestState.currentTrickCards, leadCard);
+      
+      // Check if sacrifice
+      if (leadPlay && selectedAICardPayload.suit !== leadPlay.card.suit) {
+        sound.playSacrifice();
+      } else {
+        sound.playCardSlide();
+      }
 
-    executeCardPlayOffline(botId, selectedAICardPayload, bot.name);
+      executeCardPlayOffline(botId, selectedAICardPayload, bot.name);
+    } catch (err) {
+      console.error("AI failed to play card securely:", err);
+    }
   };
 
   // Core offline gameplay state transition engine
@@ -672,7 +708,127 @@ export default function App() {
     setHiddenHands([]);
     setShowPassOverlay(false);
     setShowRoundSummary(false);
+    setLocalVote(null);
+    setShowGameControlConfirm(null);
   };
+
+  // ─── GAME CONTROL ACTIONS ─────────────────────────────────
+  const handleGameAction = (action: 'cancel' | 'end' | 'pause' | 'resume') => {
+    if (gameState.gameMode === 'ai') {
+      // AI Mode: Direct confirmation (no vote needed)
+      setShowGameControlConfirm({ action });
+    } else if (gameState.gameMode === 'pass_and_play') {
+      // P&P Mode: Start local vote
+      const me = gameState.players.find(p => p.id === myPlayerId);
+      if (!me) return;
+      const votes: Record<string, boolean> = {};
+      votes[myPlayerId] = true; // initiator votes yes
+      setLocalVote({
+        initiatorId: myPlayerId,
+        initiatorName: me.name,
+        action,
+        votes,
+        expiresAt: Date.now() + 60000,
+      });
+    } else if (gameState.gameMode === 'online') {
+      // Online Mode: Send vote through WebSocket
+      if (gameState.roomId) {
+        initiateOnlineVote(gameState.roomId, action);
+      }
+    }
+  };
+
+  // Handle local vote cast (P&P mode)
+  const handleLocalVoteCast = (playerId: string, vote: boolean) => {
+    if (!localVote) return;
+    const updatedVotes = { ...localVote.votes, [playerId]: vote };
+    const totalPlayers = gameState.players.length;
+    const totalVotes = Object.keys(updatedVotes).length;
+    
+    if (totalVotes >= totalPlayers) {
+      // All voted - resolve
+      const yesCount = Object.values(updatedVotes).filter(v => v).length;
+      const majority = Math.ceil(totalPlayers / 2);
+      
+      if (yesCount >= majority) {
+        executeGameAction(localVote.action);
+      }
+      setLocalVote(null);
+    } else {
+      setLocalVote({ ...localVote, votes: updatedVotes });
+    }
+  };
+
+  // Handle online vote cast
+  const handleOnlineVoteCast = (vote: boolean) => {
+    if (!gameState.roomId || !gameState.activeVote) return;
+    castOnlineVote(gameState.roomId, vote);
+  };
+
+  // Execute game action directly (after confirmation or vote approval)
+  const executeGameAction = async (action: 'cancel' | 'end' | 'pause' | 'resume') => {
+    if (action === 'cancel') {
+      // Save canceled match to DB for traceability
+      const matchPlayers = gameState.players.map(p => ({
+        id: p.id === 'human_id' ? myPlayerId : (p.id === 'pass_p1' ? myPlayerId : p.id),
+        name: p.name,
+        score: p.score,
+        isHost: p.isHost || false,
+        isAI: p.isAI,
+        avatarId: p.avatarId,
+      }));
+      fetch(`${API_BASE_URL}/api/matches/cancel-local`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+          gameMode: gameState.gameMode,
+          players: matchPlayers,
+        }),
+      }).catch(err => console.error('Erreur sauvegarde match annulé:', err));
+      handleExitToLobby();
+    } else if (action === 'end') {
+      // End match prematurely, highest scorer wins
+      let highestScorePlayer = gameState.players[0];
+      gameState.players.forEach(p => {
+        if (p.score > highestScorePlayer.score) highestScorePlayer = p;
+      });
+      const winnerId = highestScorePlayer && highestScorePlayer.score > 0 ? highestScorePlayer.id : null;
+      
+      const matchPlayers = gameState.players.map(p => ({
+        id: p.id === 'human_id' ? myPlayerId : (p.id === 'pass_p1' ? myPlayerId : p.id),
+        name: p.name,
+        score: p.score,
+        isHost: p.isHost || false,
+        isAI: p.isAI,
+        avatarId: p.avatarId,
+      }));
+      fetch(`${API_BASE_URL}/api/matches/end-local`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+          gameMode: gameState.gameMode,
+          players: matchPlayers,
+          winnerId: winnerId === 'human_id' ? myPlayerId : (winnerId === 'pass_p1' ? myPlayerId : winnerId),
+        }),
+      }).catch(err => console.error('Erreur sauvegarde match terminé:', err));
+      
+      setGameState(prev => ({ ...prev, status: 'game_over', winnerId }));
+    } else if (action === 'pause') {
+      setGameState(prev => ({ ...prev, status: 'paused' }));
+    } else if (action === 'resume') {
+      setGameState(prev => ({ ...prev, status: 'playing' }));
+    }
+    setShowGameControlConfirm(null);
+  };
+
+  // Handle AI mode confirmation
+  const handleConfirmGameAction = () => {
+    if (!showGameControlConfirm) return;
+    executeGameAction(showGameControlConfirm.action);
+  };
+  // ─── END GAME CONTROL ACTIONS ──────────────────────────────
 
   // Copy lobby code for inviting friends
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -747,8 +903,8 @@ export default function App() {
                   
                   {/* Prise de main indicator */}
                   {isWinnerNow ? (
-                    <span className="bg-amber-400 text-slate-900 shadow-[0_0_8px_rgba(251,191,36,0.5)] font-mono text-[8px] md:text-[9px] px-1.5 font-bold rounded animate-pulse">
-                      Mène le pli 👑
+                    <span className="bg-amber-400 text-slate-900 shadow-[0_0_8px_rgba(251,191,36,0.5)] font-mono text-[8px] md:text-[9px] px-1.5 py-0.5 font-bold rounded animate-pulse flex items-center gap-1">
+                      Mène le pli <Crown className="w-2.5 h-2.5" />
                     </span>
                   ) : !isHandSymbolMatched ? (
                     <span className="bg-red-950/40 border border-red-500/20 text-red-300 font-mono text-[8px] px-1 rounded">
@@ -855,12 +1011,15 @@ export default function App() {
 
           <div className="text-slate-300 text-[10px] md:text-xs font-mono">
             <span className="hidden sm:inline">Mode : </span>
-            <span className="text-blue-400 font-black uppercase tracking-wider">
+            <span className="text-blue-400 font-black uppercase tracking-wider inline-flex items-center gap-1">
+              {gameState.gameMode === 'ai' && <Bot className="w-3.5 h-3.5" />}
+              {gameState.gameMode === 'pass_and_play' && <Smartphone className="w-3.5 h-3.5" />}
+              {gameState.gameMode === 'online' && <Globe className="w-3.5 h-3.5" />}
               {gameState.gameMode === 'ai' 
-                ? '🤖 IA' 
+                ? 'IA' 
                 : gameState.gameMode === 'pass_and_play' 
-                  ? '📱 Local' 
-                  : '🌐 Ligne'
+                  ? 'Local' 
+                  : 'Ligne'
               }
             </span>
           </div>
@@ -875,6 +1034,47 @@ export default function App() {
 
         {/* Action icons */}
         <div className="flex items-center gap-1 md:gap-2">
+          {/* Game Control Buttons */}
+          {(gameState.status === 'playing' || gameState.status === 'round_end' || gameState.status === 'paused') && (
+            <>
+              <button
+                onClick={() => handleGameAction('cancel')}
+                className="p-1.5 md:p-2 rounded-lg bg-red-950/40 border border-red-500/20 hover:bg-red-900/50 hover:border-red-500/40 text-red-400 hover:text-red-300 transition cursor-pointer"
+                title="Annuler la partie"
+                disabled={!!gameState.activeVote || !!localVote}
+              >
+                <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
+              {gameState.status === 'paused' ? (
+                <button
+                  onClick={() => handleGameAction('resume')}
+                  className="p-1.5 md:p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-900/50 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                  title="Reprendre la partie"
+                  disabled={!!gameState.activeVote || !!localVote}
+                >
+                  <Play className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleGameAction('pause')}
+                  className="p-1.5 md:p-2 rounded-lg bg-amber-950/40 border border-amber-500/20 hover:bg-amber-900/50 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition cursor-pointer"
+                  title="Mettre en pause"
+                  disabled={!!gameState.activeVote || !!localVote || gameState.status === 'round_end'}
+                >
+                  <Pause className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => handleGameAction('end')}
+                className="p-1.5 md:p-2 rounded-lg bg-orange-950/40 border border-orange-500/20 hover:bg-orange-900/50 hover:border-orange-500/40 text-orange-400 hover:text-orange-300 transition cursor-pointer"
+                title="Terminer la partie"
+                disabled={!!gameState.activeVote || !!localVote}
+              >
+                <Flag className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
+              <div className="h-4 w-[1px] bg-white/10" />
+            </>
+          )}
           <button
             onClick={() => setShowRuleModal(true)}
             className="p-1.5 md:p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
@@ -1230,7 +1430,11 @@ export default function App() {
                     return (
                       <div className="space-y-1">
                         <span className="text-xs font-mono text-emerald-400 font-bold uppercase tracking-widest animate-pulse flex items-center justify-center gap-1.5">
-                          ✨ 🏆 VICTOIRE FINALE DU MATCH 🏆 ✨
+                          <Sparkles className="w-4 h-4 text-emerald-400" />
+                          <Trophy className="w-4 h-4 text-amber-400" />
+                          <span>VICTOIRE FINALE DU MATCH</span>
+                          <Trophy className="w-4 h-4 text-amber-400" />
+                          <Sparkles className="w-4 h-4 text-emerald-400" />
                         </span>
                         <h3 className="text-3xl font-black text-white leading-none">
                           Champion Suprême
@@ -1345,6 +1549,76 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* 4b. Game Over Modal (premature end via vote) */}
+      <AnimatePresence>
+        {gameState.status === 'game_over' && !gameState.lastRoundResult && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.9, y: 30, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                className="w-full max-w-lg bg-slate-950/45 border border-white/10 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl relative overflow-hidden text-center space-y-6"
+              >
+                <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500" />
+                
+                <div className="mx-auto w-16 h-16 rounded-full bg-orange-400/10 border border-orange-400/30 flex items-center justify-center text-orange-400">
+                  <Flag className="w-10 h-10" />
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-xs font-mono text-orange-400 font-bold uppercase tracking-widest">
+                    Partie Terminée Prématurément
+                  </span>
+                  <h3 className="text-3xl font-black text-white leading-none">
+                    Fin de Partie
+                  </h3>
+                  {gameState.winnerId && (
+                    <p className="text-2xl font-black text-amber-400 mt-2">
+                      {gameState.players.find(p => p.id === gameState.winnerId)?.name} en tête !
+                    </p>
+                  )}
+                </div>
+
+                {/* Scores */}
+                <div className="space-y-2 text-left">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest px-1 font-bold">Scores Finaux</span>
+                  <div className="divide-y divide-white/10 bg-black/30 border border-white/10 rounded-2xl overflow-hidden">
+                    {[...gameState.players].sort((a, b) => b.score - a.score).map(p => {
+                      const isWinner = p.id === gameState.winnerId;
+                      const avatar = AVATARS.find(av => av.id === p.avatarId) || AVATARS[0];
+                      return (
+                        <div key={p.id} className="flex items-center justify-between p-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-6 h-6 rounded flex items-center justify-center font-bold text-xs border ${avatar.color}`}>
+                              {avatar.symbol}
+                            </span>
+                            <span className={`text-xs font-bold ${isWinner ? 'text-amber-400 font-black' : 'text-slate-200'}`}>
+                              {p.name} {isWinner && <Crown className="w-3 h-3 inline text-amber-400" />}
+                            </span>
+                          </div>
+                          <span className="font-mono text-xs font-bold text-white">{p.score} pts</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleExitToLobby}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Home className="w-3.5 h-3.5" /> Retourner à l'Accueil
+                </button>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* 5. Right Sidebar Drawers */}
       <HistoryDrawer
         isOpen={isHistoryOpen}
@@ -1362,6 +1636,250 @@ export default function App() {
           players={gameState.players} 
         />
       )}
+
+      {/* 7. AI Mode Confirmation Dialog */}
+      <AnimatePresence>
+        {showGameControlConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowGameControlConfirm(null)}
+              className="fixed inset-0 bg-black/60 z-40 cursor-pointer backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="w-full max-w-sm bg-slate-950/50 border border-white/15 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl text-center space-y-5">
+                <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center ${
+                  showGameControlConfirm.action === 'cancel' ? 'bg-red-500/15 border border-red-500/30 text-red-400' :
+                  showGameControlConfirm.action === 'pause' ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400' :
+                  showGameControlConfirm.action === 'resume' ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400' :
+                  'bg-orange-500/15 border border-orange-500/30 text-orange-400'
+                }`}>
+                  {showGameControlConfirm.action === 'cancel' && <XCircle className="w-7 h-7" />}
+                  {showGameControlConfirm.action === 'pause' && <Pause className="w-7 h-7" />}
+                  {showGameControlConfirm.action === 'resume' && <Play className="w-7 h-7" />}
+                  {showGameControlConfirm.action === 'end' && <Flag className="w-7 h-7" />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">
+                    {showGameControlConfirm.action === 'cancel' && 'Annuler la partie ?'}
+                    {showGameControlConfirm.action === 'pause' && 'Mettre en pause ?'}
+                    {showGameControlConfirm.action === 'resume' && 'Reprendre la partie ?'}
+                    {showGameControlConfirm.action === 'end' && 'Terminer la partie ?'}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {showGameControlConfirm.action === 'cancel' && 'La partie sera annulée et ne comptera pas dans vos statistiques.'}
+                    {showGameControlConfirm.action === 'pause' && 'La partie sera mise en pause.'}
+                    {showGameControlConfirm.action === 'resume' && 'La partie reprendra où elle s\'était arrêtée.'}
+                    {showGameControlConfirm.action === 'end' && 'Le joueur avec le plus de points sera déclaré vainqueur.'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowGameControlConfirm(null)}
+                    className="flex-1 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <X className="w-3.5 h-3.5" /> Non
+                  </button>
+                  <button
+                    onClick={handleConfirmGameAction}
+                    className={`flex-1 py-2.5 font-bold rounded-xl text-xs transition cursor-pointer text-white flex items-center justify-center gap-1.5 ${
+                      showGameControlConfirm.action === 'cancel' ? 'bg-red-600 hover:bg-red-500' :
+                      showGameControlConfirm.action === 'end' ? 'bg-orange-600 hover:bg-orange-500' :
+                      showGameControlConfirm.action === 'pause' ? 'bg-amber-600 hover:bg-amber-500' :
+                      'bg-emerald-600 hover:bg-emerald-500'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" /> Oui, confirmer
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 8. Vote Modal (P&P local and Online modes) */}
+      <AnimatePresence>
+        {(localVote || (gameState.activeVote && gameState.gameMode === 'online')) && (() => {
+          const activeVoteData = localVote || gameState.activeVote;
+          if (!activeVoteData) return null;
+
+          const actionLabels: Record<string, string> = {
+            cancel: 'Annuler la partie',
+            end: 'Terminer la partie',
+            pause: 'Mettre en pause',
+            resume: 'Reprendre la partie',
+          };
+          const actionColors: Record<string, string> = {
+            cancel: 'text-red-400 bg-red-500/15 border-red-500/30',
+            end: 'text-orange-400 bg-orange-500/15 border-orange-500/30',
+            pause: 'text-amber-400 bg-amber-500/15 border-amber-500/30',
+            resume: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
+          };
+
+          const myVote = activeVoteData.votes[myPlayerId];
+          const hasVoted = myVote !== undefined;
+          
+          // For P&P, find the next player who hasn't voted
+          const nextVoterP_P = gameState.gameMode === 'pass_and_play' 
+            ? gameState.players.find(p => activeVoteData.votes[p.id] === undefined) 
+            : null;
+
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.6 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              >
+                <div className="w-full max-w-md bg-slate-950/50 border border-white/15 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl space-y-5">
+                  {/* Vote Header */}
+                  <div className="text-center space-y-3">
+                    <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center border ${actionColors[activeVoteData.action]}`}>
+                      <AlertTriangle className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-bold">Vote en cours</span>
+                      <h3 className="text-lg font-black text-white mt-1">{actionLabels[activeVoteData.action]}</h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Proposé par <span className="text-white font-bold">{activeVoteData.initiatorName}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Player votes list */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-bold px-1">Votes des joueurs</span>
+                    <div className="divide-y divide-white/10 bg-black/30 border border-white/10 rounded-2xl overflow-hidden">
+                      {gameState.players.map(p => {
+                        const playerVote = activeVoteData.votes[p.id];
+                        const avatar = AVATARS.find(av => av.id === p.avatarId) || AVATARS[0];
+                        return (
+                          <div key={p.id} className="flex items-center justify-between p-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-6 h-6 rounded flex items-center justify-center font-bold text-xs border ${avatar.color}`}>
+                                {avatar.symbol}
+                              </span>
+                              <span className="text-xs font-bold text-slate-200">{p.name}</span>
+                            </div>
+                            <div>
+                              {playerVote === true && (
+                                <span className="text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Oui
+                                </span>
+                              )}
+                              {playerVote === false && (
+                                <span className="text-[10px] font-bold bg-red-500/15 border border-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <X className="w-3 h-3" /> Non
+                                </span>
+                              )}
+                              {playerVote === undefined && (
+                                <span className="text-[10px] font-mono text-slate-500 animate-pulse">En attente...</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Vote buttons */}
+                  {gameState.gameMode === 'pass_and_play' && nextVoterP_P ? (
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-300 text-center">
+                        Au tour de <span className="text-purple-300 font-black">{nextVoterP_P.name}</span> de voter
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleLocalVoteCast(nextVoterP_P.id, false)}
+                          className="flex-1 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <X className="w-3.5 h-3.5" /> Non
+                        </button>
+                        <button
+                          onClick={() => handleLocalVoteCast(nextVoterP_P.id, true)}
+                          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Oui
+                        </button>
+                      </div>
+                    </div>
+                  ) : gameState.gameMode === 'online' && !hasVoted ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleOnlineVoteCast(false)}
+                        className="flex-1 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <X className="w-3.5 h-3.5" /> Non
+                      </button>
+                      <button
+                        onClick={() => handleOnlineVoteCast(true)}
+                        className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Oui
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center text-xs text-slate-400 font-mono animate-pulse py-2">
+                      En attente des votes des autres joueurs...
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* 9. Pause Overlay */}
+      <AnimatePresence>
+        {gameState.status === 'paused' && !localVote && !gameState.activeVote && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/80 z-35 backdrop-blur-lg flex flex-col items-center justify-center gap-6"
+          >
+            <div className="glass p-10 max-w-md w-full text-center space-y-6 shadow-2xl relative overflow-hidden backdrop-blur-2xl border border-white/15 rounded-3xl">
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500" />
+              <div className="mx-auto w-16 h-16 rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400">
+                <Pause className="w-10 h-10" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black text-white tracking-tight">Partie en Pause</h2>
+                <p className="text-sm text-slate-400 mt-2">La partie est temporairement suspendue.</p>
+              </div>
+              <button
+                onClick={() => handleGameAction('resume')}
+                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition shadow-lg cursor-pointer inline-flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" /> Reprendre la partie
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 10. Canceled state - auto redirect */}
+      {gameState.status === 'canceled' && (() => {
+        // Auto redirect to lobby on cancel
+        setTimeout(() => handleExitToLobby(), 100);
+        return null;
+      })()}
     </div>
   );
 }

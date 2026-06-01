@@ -226,6 +226,30 @@ export function subscribeToChatHistory(callback: (history: ChatMessage[]) => voi
 }
 
 /**
+ * Initiate a vote to cancel/pause/end/resume an online game
+ */
+export async function initiateOnlineVote(roomId: string, action: 'cancel' | 'end' | 'pause' | 'resume'): Promise<void> {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'initiate_vote',
+      payload: { roomId, action }
+    }));
+  }
+}
+
+/**
+ * Cast a vote (yes/no) on an active vote in an online game
+ */
+export async function castOnlineVote(roomId: string, vote: boolean): Promise<void> {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'cast_vote',
+      payload: { roomId, vote }
+    }));
+  }
+}
+
+/**
  * Register a new user with password and avatar (including anti-bot honeypot check)
  */
 export async function registerUser(username: string, password: string, avatarId: string, honeypotValue: string): Promise<any> {
@@ -238,8 +262,13 @@ export async function registerUser(username: string, password: string, avatarId:
   });
 
   if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData.error || "Erreur d'inscription");
+    try {
+      const errData = await response.json();
+      throw new Error(errData.error || "Erreur d'inscription");
+    } catch (parseErr) {
+      if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
+      throw new Error(`Impossible de joindre le serveur (code ${response.status}). Vérifiez que le backend est démarré sur le port 3000.`);
+    }
   }
 
   return await response.json();
@@ -258,8 +287,13 @@ export async function loginUser(username: string, password: string): Promise<any
   });
 
   if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData.error || "Erreur de connexion");
+    try {
+      const errData = await response.json();
+      throw new Error(errData.error || "Erreur de connexion");
+    } catch (parseErr) {
+      if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
+      throw new Error(`Impossible de joindre le serveur (code ${response.status}). Vérifiez que le backend est démarré sur le port 3000.`);
+    }
   }
 
   return await response.json();
@@ -277,8 +311,13 @@ export async function getMe(token: string): Promise<any> {
   });
 
   if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData.error || "Session invalide");
+    try {
+      const errData = await response.json();
+      throw new Error(errData.error || "Session invalide");
+    } catch (parseErr) {
+      if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
+      throw new Error('Session invalide ou serveur inaccessible.');
+    }
   }
 
   return await response.json();
