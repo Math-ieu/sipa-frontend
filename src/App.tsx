@@ -469,6 +469,13 @@ export default function App() {
       executeCardPlayOffline(botId, selectedAICardPayload, bot.name);
     } catch (err) {
       console.error("AI failed to play card securely:", err);
+      // Garde-fou anti-blocage : avancer de force le tour de jeu
+      const totalPlayersCount = latestState.players.length;
+      const nextActiveIdx = (latestState.activePlayerIndex + 1) % totalPlayersCount;
+      setGameState(prev => ({
+        ...prev,
+        activePlayerIndex: nextActiveIdx,
+      }));
     }
   };
 
@@ -578,7 +585,8 @@ export default function App() {
           // Pass & play masking management
           let nextHidden = [...hiddenHands];
           if (latestState.gameMode === 'pass_and_play') {
-            const nextL = players[nextLeaderIdx];
+            const safeIdx = nextLeaderIdx >= 0 ? nextLeaderIdx : 0;
+            const nextL = players[safeIdx];
             setShowPassOverlay(true);
             setMyPlayerId(nextL.id);
           }
@@ -588,7 +596,7 @@ export default function App() {
             currentTrickCards: [],
             currentTrickIndex: prev.currentTrickIndex + 1,
             currentLeaderId: trickWinnerId,
-            activePlayerIndex: nextLeaderIdx,
+            activePlayerIndex: nextLeaderIdx >= 0 ? nextLeaderIdx : 0,
             tricksHistory: updatedTricksHistory,
           }));
           setHiddenHands(nextHidden);
