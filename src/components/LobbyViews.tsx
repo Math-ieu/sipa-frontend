@@ -882,7 +882,7 @@ export function LobbyViews({
                   {/* Left Column: Visual Card, Badges & Preferences (lg:col-span-5) */}
                   <div className="lg:col-span-5 flex flex-col gap-6 w-full">
                     {/* Left Column: Visual Profile Card (Compact Horizontal Banner) */}
-                    <div className="w-full glass p-4 rounded-2xl text-left shadow-lg border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/40 backdrop-blur-md">
+                    <div className="w-full glass p-4 rounded-2xl text-left shadow-lg border border-white/10 flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center justify-between gap-4 bg-slate-900/40 backdrop-blur-md">
                       <div className="flex items-center gap-4">
                         {(() => {
                           const myAv = AVATARS.find(av => av.id === selectedAvatarId) || AVATARS[0];
@@ -907,7 +907,7 @@ export function LobbyViews({
                       </div>
 
                       {/* Right Column: Profile Stats and Logout */}
-                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                      <div className="flex items-center gap-4 w-full sm:w-auto lg:w-full xl:w-auto justify-between sm:justify-end lg:justify-between xl:justify-end">
                         {/* Compact Stats */}
                         <div className="flex gap-4 bg-white/5 border border-white/5 py-1.5 px-3 rounded-xl text-xs">
                           <div className="text-center px-1">
