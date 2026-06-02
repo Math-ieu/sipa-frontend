@@ -320,6 +320,7 @@ export default function App() {
       lastRoundResult: null,
       dealerId: 'human_id',
       gameMode: 'ai',
+      roundsHistory: [],
     });
     
     setMyPlayerId('human_id');
@@ -376,6 +377,7 @@ export default function App() {
       lastRoundResult: null,
       dealerId: 'pass_p1',
       gameMode: 'pass_and_play',
+      roundsHistory: [],
     });
 
     // Mask hands except player 1
@@ -569,15 +571,23 @@ export default function App() {
           // Play winner celebration sound
           sound.playRoundVictory();
 
-          setGameState(prev => ({
-            ...prev,
-            players: updatedPlayersWithNewScore,
-            currentTrickCards: [],
-            tricksHistory: updatedTricksHistory,
-            lastRoundResult: roundResult,
-            status: 'round_end',
-            winnerId: null,
-          }));
+          setGameState(prev => {
+            const currentRoundsHistory = prev.roundsHistory || [];
+            const newRoundEntry = {
+              roundNumber: latestState.currentRound,
+              tricks: updatedTricksHistory,
+            };
+            return {
+              ...prev,
+              players: updatedPlayersWithNewScore,
+              currentTrickCards: [],
+              tricksHistory: updatedTricksHistory,
+              roundsHistory: [...currentRoundsHistory, newRoundEntry],
+              lastRoundResult: roundResult,
+              status: 'round_end',
+              winnerId: null,
+            };
+          });
           
           setShowRoundSummary(true);
         } else {
@@ -665,7 +675,7 @@ export default function App() {
       await resetOnlineScores(gameState.roomId);
     } else {
       const resetPlayers = gameState.players.map((p) => ({ ...p, score: 0 }));
-      setGameState(prev => ({ ...prev, players: resetPlayers }));
+      setGameState(prev => ({ ...prev, players: resetPlayers, roundsHistory: [] }));
     }
     // Dismiss summary if open
     setShowRoundSummary(false);
@@ -688,6 +698,7 @@ export default function App() {
       lastRoundResult: null,
       dealerId: '',
       gameMode: 'ai',
+      roundsHistory: [],
     });
     setHiddenHands([]);
     setShowPassOverlay(false);
@@ -768,6 +779,7 @@ export default function App() {
           roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
           gameMode: gameState.gameMode,
           players: matchPlayers,
+          roundsHistory: gameState.roundsHistory || [],
         }),
       }).catch(err => console.error('Erreur sauvegarde match annulé:', err));
       handleExitToLobby();
@@ -795,6 +807,7 @@ export default function App() {
           gameMode: gameState.gameMode,
           players: matchPlayers,
           winnerId: winnerId === 'human_id' ? myPlayerId : (winnerId === 'pass_p1' ? myPlayerId : winnerId),
+          roundsHistory: gameState.roundsHistory || [],
         }),
       }).catch(err => console.error('Erreur sauvegarde match terminé:', err));
       

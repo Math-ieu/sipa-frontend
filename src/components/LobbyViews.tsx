@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isFirebaseConfigured, API_BASE_URL, registerUser, loginUser } from '../utils/backendService';
+import { MatchHistoryDetailDrawer } from './MatchHistoryDetailDrawer';
 import {
   Users,
   Cpu,
@@ -222,6 +223,8 @@ export function LobbyViews({
   const [stats, setStats] = useState<{ totalMatches: number; wins: number; losses: number; winRate: number } | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
+  const [selectedMatchForDetail, setSelectedMatchForDetail] = useState<any | null>(null);
+  const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     if (!activePlayerId) return;
@@ -1353,7 +1356,11 @@ export function LobbyViews({
                         return (
                           <div
                             key={m.matchId}
-                            className={`match-history-card flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border backdrop-blur-md transition-all duration-300 gap-4 bg-gradient-to-r from-slate-900/50 to-slate-950/80 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${isUserWinner
+                            onClick={() => {
+                              setSelectedMatchForDetail(m);
+                              setIsDetailDrawerOpen(true);
+                            }}
+                            className={`match-history-card cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border backdrop-blur-md transition-all duration-300 gap-4 bg-gradient-to-r from-slate-900/50 to-slate-950/80 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${isUserWinner
                                 ? 'border-emerald-500/15 hover:border-emerald-500/40 shadow-sm shadow-emerald-500/5'
                                 : 'border-white/5 hover:border-white/20'
                               }`}
@@ -1434,6 +1441,13 @@ export function LobbyViews({
           )}
         </AnimatePresence>
       </div>
+
+      <MatchHistoryDetailDrawer
+        isOpen={isDetailDrawerOpen}
+        onClose={() => setIsDetailDrawerOpen(false)}
+        match={selectedMatchForDetail}
+        activePlayerId={activePlayerId}
+      />
     </div>
   );
 }
