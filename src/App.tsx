@@ -836,7 +836,7 @@ export default function App() {
     const currentWinningPlay = leadPlay ? getCurrentWinningPlay(gameState.currentTrickCards, startingSuit as Suit) : null;
 
     return (
-      <div className="relative w-full max-w-2xl mx-auto h-[190px] md:h-[300px] bg-gradient-to-b from-slate-900/40 via-slate-950/60 to-slate-950/80 border border-white/10 backdrop-blur-2xl rounded-[40px] md:rounded-[60px] p-4 flex flex-col items-center justify-center gap-2 md:gap-4 overflow-hidden shadow-2xl shadow-indigo-950/20">
+      <div className="relative w-full max-w-2xl mx-auto h-[190px] md:h-[300px] bg-gradient-to-b from-slate-900/40 via-slate-950/60 to-slate-950/80 border border-white/10 backdrop-blur-2xl rounded-[20px] md:rounded-[25px] p-4 flex flex-col items-center justify-center gap-2 md:gap-4 overflow-hidden shadow-2xl shadow-indigo-950/20">
         {/* Glowing active suit kinetic field */}
         {startingSuit && (
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-indigo-500/5 opacity-40 blur-3xl pointer-events-none" />

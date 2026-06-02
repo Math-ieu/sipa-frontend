@@ -36,6 +36,24 @@ export function CardView({
     lg: 'w-24 h-34 text-sm rounded-2xl shadow-xl md:w-32 md:h-44 md:text-lg',
   };
 
+  const rankSizeClasses = {
+    sm: 'text-[9px] md:text-[11px]',
+    md: 'text-xs md:text-base',
+    lg: 'text-sm md:text-xl',
+  };
+
+  const symbolSizeClasses = {
+    sm: 'text-[8px] md:text-[10px]',
+    md: 'text-[10px] md:text-sm',
+    lg: 'text-xs md:text-lg',
+  };
+
+  const middleSymbolSizeClasses = {
+    sm: 'text-lg md:text-2xl',
+    md: 'text-2xl md:text-4xl',
+    lg: 'text-4xl md:text-6xl',
+  };
+
   const suitLabel = SUIT_LABELS[card.suit];
 
   // Face down design (Back of the card) - Frosted Glass style
@@ -89,27 +107,27 @@ export function CardView({
     >
       {/* Top Left Indicator */}
       <div className="absolute top-1 left-1 md:top-1.5 md:left-1.5 flex flex-col items-center leading-none">
-        <span className={`font-sans font-black tracking-tight leading-none ${suitColorClass}`}>
+        <span className={`font-sans font-black tracking-tight leading-none ${rankSizeClasses[size]} ${suitColorClass}`}>
           {card.rank}
         </span>
-        <span className={`text-[10px] md:text-sm ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]`}>
+        <span className={`${symbolSizeClasses[size]} ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]`}>
           {symbol}
         </span>
       </div>
 
       {/* Middle Huge Indicator */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span className={`text-2xl md:text-4xl select-none ${suitColorClass} opacity-90 font-serif filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+        <span className={`${middleSymbolSizeClasses[size]} select-none ${suitColorClass} opacity-90 font-serif filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
           {symbol}
         </span>
       </div>
 
       {/* Bottom Right Indicator */}
       <div className="absolute bottom-1 right-1 md:bottom-1.5 md:right-1.5 flex flex-col items-center leading-none rotate-180">
-        <span className={`font-sans font-black tracking-tight leading-none ${suitColorClass}`}>
+        <span className={`font-sans font-black tracking-tight leading-none ${rankSizeClasses[size]} ${suitColorClass}`}>
           {card.rank}
         </span>
-        <span className={`text-[10px] md:text-sm ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]`}>
+        <span className={`${symbolSizeClasses[size]} ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]`}>
           {symbol}
         </span>
       </div>
