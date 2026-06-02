@@ -42,18 +42,18 @@ export function CardView({
   if (!faceUp) {
     return (
       <motion.div
-        className={`${sizeClasses[size]} relative flex items-center justify-center bg-gradient-to-br from-indigo-950/40 via-slate-900/60 to-purple-950/40 border border-white/10 backdrop-blur-md select-none overflow-hidden`}
+        className={`${sizeClasses[size]} relative flex items-center justify-center bg-gradient-to-br from-indigo-950/80 via-slate-950/90 to-purple-950/80 border border-white/15 backdrop-blur-md select-none overflow-hidden shadow-2xl`}
         whileHover={onClick ? { scale: 1.05, y: -4 } : {}}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       >
         {/* Futuristic Card Pattern Back */}
         <div className="absolute inset-1 rounded-lg border border-white/5 bg-grid opacity-20 pointer-events-none" />
-        <div className="absolute inset-2 bg-white/5 rounded-md flex flex-col items-center justify-center border border-white/10 backdrop-blur-sm">
-          <div className="text-white/80 font-mono tracking-widest text-[9px] md:text-xs font-semibold select-none">
+        <div className="absolute inset-2 bg-gradient-to-br from-slate-950/90 to-slate-900/90 rounded-md flex flex-col items-center justify-center border border-white/10 backdrop-blur-sm shadow-[inset_0_0_12px_rgba(99,102,241,0.25)]">
+          <div className="text-indigo-400 font-mono tracking-widest text-[9px] md:text-xs font-black select-none uppercase">
             SIPA
           </div>
-          <div className="w-4 h-4 rounded-full border border-indigo-400/30 mt-1 flex items-center justify-center">
-            <div className="w-1.5 h-1.5 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full animate-pulse" />
+          <div className="w-5 h-5 rounded-full border border-indigo-400/40 mt-1.5 flex items-center justify-center bg-indigo-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+            <div className="w-2 h-2 bg-gradient-to-r from-cyan-400 to-indigo-400 rounded-full animate-pulse" />
           </div>
         </div>
       </motion.div>
@@ -77,7 +77,7 @@ export function CardView({
         ${sizeClasses[size]} 
         relative  border select-none transition-all duration-300 overflow-hidden
         ${isWinning 
-          ? 'bg-white border-amber-500 text-slate-900 shadow-[0_0_20px_rgba(245,158,11,0.45)] cursor-pointer ring-2 ring-amber-400/30' 
+          ? 'bg-gradient-to-br from-white to-amber-50/70 border-amber-500 text-slate-900 shadow-[0_0_25px_rgba(245,158,11,0.55)] cursor-pointer ring-2 ring-amber-400/45' 
           : canPlay && onClick
             ? 'bg-white border-slate-200 text-slate-950 hover:border-blue-500 hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] cursor-pointer shadow-sm'
             : 'bg-neutral-50/90 border-slate-200 text-neutral-400 opacity-55 cursor-not-allowed shadow-none'

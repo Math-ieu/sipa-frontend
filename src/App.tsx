@@ -836,16 +836,24 @@ export default function App() {
     const currentWinningPlay = leadPlay ? getCurrentWinningPlay(gameState.currentTrickCards, startingSuit as Suit) : null;
 
     return (
-      <div className="relative w-full max-w-xl mx-auto h-[180px] md:h-[280px] bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-2 md:p-4 flex flex-col items-center justify-center gap-1.5 md:gap-3 overflow-hidden shadow-2xl">
-        {/* Glow accent orb inside table */}
-        <div className="absolute inset-0 bg-blue-500/5 blur-2xl rounded-full pointer-events-none" />
+      <div className="relative w-full max-w-2xl mx-auto h-[190px] md:h-[300px] bg-gradient-to-b from-slate-900/40 via-slate-950/60 to-slate-950/80 border border-white/10 backdrop-blur-2xl rounded-[40px] md:rounded-[60px] p-4 flex flex-col items-center justify-center gap-2 md:gap-4 overflow-hidden shadow-2xl shadow-indigo-950/20">
+        {/* Glowing active suit kinetic field */}
+        {startingSuit && (
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-indigo-500/5 opacity-40 blur-3xl pointer-events-none" />
+        )}
+        
+        {/* Cyber Grid ring outline overlay */}
+        <div className="absolute inset-2 rounded-[32px] md:rounded-[48px] border border-dashed border-white/5 opacity-40 pointer-events-none" />
+        <div className="absolute inset-6 rounded-[24px] md:rounded-[36px] border border-white/5 opacity-20 pointer-events-none" />
+        <div className="absolute inset-0 bg-blue-500/2 blur-2xl rounded-full pointer-events-none" />
 
         {/* Dynamic Glowing Halo indicating starting play suit */}
         {startingSuit && (
-          <div className="absolute top-2 left-3 md:top-3 md:left-4 flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-0.5 md:py-1 bg-black/40 border border-white/10 backdrop-blur-sm rounded-full text-[10px] md:text-xs text-slate-200 font-mono select-none z-10">
+          <div className="absolute top-2.5 left-3.5 md:top-4 md:left-5 flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1.5 bg-black/60 border border-white/10 backdrop-blur-sm rounded-full text-[10px] md:text-xs text-slate-200 font-mono select-none z-10 shadow-lg">
             Sorte demandée :{' '}
-            <span className={`${SUIT_COLORS[startingSuit as Suit]} font-bold`}>
-              {SUIT_TEXT_SYMBOLS[startingSuit as Suit]} {SUIT_LABELS[startingSuit as Suit]}
+            <span className={`${SUIT_COLORS[startingSuit as Suit]} font-bold flex items-center gap-1`}>
+              <span>{SUIT_TEXT_SYMBOLS[startingSuit as Suit]}</span>
+              <span>{SUIT_LABELS[startingSuit as Suit]}</span>
             </span>
           </div>
         )}
@@ -948,16 +956,7 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen bg-mesh text-slate-150 flex flex-col justify-between selection:bg-blue-500 relative">
-        <div className="absolute top-4 right-4 z-50">
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
-            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition shadow-lg backdrop-blur-md flex items-center justify-center cursor-pointer"
-            title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-200" /> : <Moon className="w-5 h-5 text-slate-300" />}
-          </button>
-        </div>
+      <div className="min-h-screen bg-mesh text-slate-150 selection:bg-blue-500 relative flex flex-col justify-stretch">
         <LobbyViews
           currentUser={currentUser}
           onLogin={handleLogin}
@@ -966,11 +965,9 @@ export default function App() {
           onJoinPassAndPlay={startPassAndPlayGame}
           onCreateOnline={handleCreateOnlineRoom}
           onJoinOnline={handleJoinOnlineRoom}
+          theme={theme}
+          onToggleTheme={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
         />
-        {/* Footer */}
-        <div className="py-4 text-center border-t border-white/5 text-slate-500 text-xs font-mono backdrop-blur-md relative z-10">
-          SIPA © 2026 • Design by Joach27
-        </div>
       </div>
     );
   }
@@ -1359,7 +1356,11 @@ export default function App() {
             <div className="space-y-4">
               
               {/* My Status header HUD - Frosted Glass box */}
-              <div className="p-3 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl flex items-center justify-between gap-4 max-w-2xl mx-auto shadow-xl">
+              <div className={`p-3 bg-white/5 border backdrop-blur-md rounded-2xl flex items-center justify-between gap-4 max-w-2xl mx-auto shadow-xl transition-all duration-300 ${
+                isMyActiveTurn 
+                  ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)] ring-1 ring-blue-400/20' 
+                  : 'border-white/10'
+              }`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-base border ${avatar.color}`}>
                     {avatar.symbol}

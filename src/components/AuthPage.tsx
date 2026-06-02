@@ -81,7 +81,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-pulse" /> Portail d'Accès Sécurisé
           </motion.div>
           
-          <h1 className="text-7xl md:text-8xl font-black font-sans tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)]">
+          <h1 className="text-7xl md:text-8xl font-black font-sans tracking-tighter bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_15px_rgba(99,102,241,0.25)]">
             SIPA
           </h1>
           <p className="text-sm md:text-base text-slate-400 mt-2 font-medium max-w-sm mx-auto leading-relaxed">
@@ -236,12 +236,11 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
               </motion.div>
             )}
 
-            {/* Action buttons */}
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-blue-650 hover:bg-blue-600 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-lg hover:shadow-blue-500/10"
+                className="w-full py-4 bg-gradient-to-r from-blue-650 via-indigo-650 to-purple-650 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 disabled:opacity-50 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-900/30 hover:shadow-indigo-500/20 active:scale-[0.98]"
               >
                 {loading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />

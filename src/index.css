@@ -7,53 +7,216 @@
   background-color: #020617;
 }
 
-/* SOLARIZED LIGHT OVERRIDES */
+/* TRUE SOLARIZED LIGHT THEME OVERRIDES */
 html.solarized-light body {
-  color: #657b83;
-}
-
-html.solarized-light .bg-mesh {
-  background: radial-gradient(circle at 20% 20%, #eee8d5 0%, transparent 45%),
-              radial-gradient(circle at 80% 80%, #dfd9c6 0%, transparent 45%),
-              radial-gradient(circle at 50% 50%, #fdf6e3 0%, transparent 100%) !important;
+  color: #586e75 !important; /* Solarized Base01 */
   background-color: #fdf6e3 !important;
 }
 
+html.solarized-light .bg-mesh {
+  background: radial-gradient(circle at 15% 15%, rgba(238, 232, 213, 0.4) 0%, transparent 50%),
+              radial-gradient(circle at 85% 85%, rgba(253, 246, 227, 0.5) 0%, transparent 50%),
+              radial-gradient(circle at 50% 50%, #fdf6e3 0%, #eee8d5 100%) !important;
+  background-color: #fdf6e3 !important;
+}
+
+/* Base text color conversions */
 html.solarized-light .text-slate-100,
 html.solarized-light .text-slate-200,
 html.solarized-light .text-slate-150,
-html.solarized-light .text-white {
-  color: #073642 !important; /* base02 */
+html.solarized-light h1,
+html.solarized-light h2,
+html.solarized-light h3,
+html.solarized-light h4,
+html.solarized-light .text-white:not(button):not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]):not([class*="hover:"]):not(nav) {
+  color: #073642 !important; /* Solarized Base02 */
 }
 
 html.solarized-light .text-slate-300,
 html.solarized-light .text-slate-400,
+html.solarized-light .text-slate-455,
+html.solarized-light .text-slate-450,
 html.solarized-light .text-slate-500 {
-  color: #586e75 !important; /* base01 */
+  color: #586e75 !important; /* Solarized Base01 */
 }
 
+/* Ensure button and badge text colors remain bright and high-contrast */
+html.solarized-light button.text-white,
+html.solarized-light button .text-white,
+html.solarized-light [class*="bg-blue-"] .text-white,
+html.solarized-light [class*="bg-gradient-"] .text-white,
+html.solarized-light [class*="bg-emerald-"] .text-white,
+html.solarized-light [class*="bg-red-"] .text-white,
+html.solarized-light [class*="bg-purple-"] .text-white,
+html.solarized-light [class*="bg-orange-"] .text-white {
+  color: #ffffff !important;
+}
+
+/* Neon text color adjustments for contrast on warm Solarized backdrops */
+html.solarized-light .text-blue-400,
+html.solarized-light .text-blue-450 {
+  color: #268bd2 !important; /* Solarized Blue */
+}
+html.solarized-light .text-emerald-400,
+html.solarized-light .text-emerald-455,
+html.solarized-light .text-emerald-450 {
+  color: #859900 !important; /* Solarized Green */
+}
+html.solarized-light .text-amber-400,
+html.solarized-light .text-amber-350,
+html.solarized-light .text-amber-300 {
+  color: #b58900 !important; /* Solarized Yellow */
+}
+html.solarized-light .text-cyan-400,
+html.solarized-light .text-cyan-405 {
+  color: #2aa198 !important; /* Solarized Cyan */
+}
+html.solarized-light .text-purple-400,
+html.solarized-light .text-purple-450,
+html.solarized-light .text-purple-405 {
+  color: #6c71c4 !important; /* Solarized Violet */
+}
+html.solarized-light .text-red-400 {
+  color: #dc322f !important; /* Solarized Red */
+}
+html.solarized-light .text-orange-400 {
+  color: #cb4b16 !important; /* Solarized Orange */
+}
+
+/* Containers in Light Mode (using Solarized Base2 with glass frosted feels) */
 html.solarized-light .bg-white\/5,
 html.solarized-light .bg-white\/10,
 html.solarized-light .bg-white\/15,
-html.solarized-light .bg-black\/40 {
-  background-color: rgba(0, 43, 54, 0.05) !important;
+html.solarized-light .bg-black\/40,
+html.solarized-light .bg-black\/20 {
+  background-color: rgba(238, 232, 213, 0.45) !important; /* Solarized Base2 */
+  border-color: rgba(7, 54, 66, 0.08) !important;
 }
 
 html.solarized-light .border-white\/5,
 html.solarized-light .border-white\/10,
-html.solarized-light .border-white\/15 {
-  border-color: rgba(0, 43, 54, 0.15) !important;
+html.solarized-light .border-white\/15,
+html.solarized-light .border-white\/20,
+html.solarized-light .border-white\/30 {
+  border-color: rgba(7, 54, 66, 0.08) !important;
 }
 
 html.solarized-light .bg-slate-950\/85,
+html.solarized-light .bg-slate-950\/90,
+html.solarized-light .bg-slate-950\/95,
 html.solarized-light .bg-slate-950\/40,
-html.solarized-light .bg-slate-900 {
-  background-color: rgba(253, 246, 227, 0.95) !important;
-  border-color: rgba(0, 43, 54, 0.15) !important;
+html.solarized-light .bg-slate-900,
+html.solarized-light .bg-slate-950 {
+  background-color: rgba(238, 232, 213, 0.6) !important; /* Solarized Base2 */
+  border-color: rgba(7, 54, 66, 0.08) !important;
 }
 
 html.solarized-light .bg-slate-800 {
-  background-color: #eee8d5 !important;
+  background-color: rgba(7, 54, 66, 0.04) !important;
+}
+
+/* Glassmorphism sidebar & components */
+html.solarized-light .glass,
+html.solarized-light aside.glass {
+  background: rgba(253, 246, 227, 0.65) !important; /* Solarized Base3 */
+  border-color: rgba(7, 54, 66, 0.08) !important;
+  box-shadow: 0 10px 30px -10px rgba(7, 54, 66, 0.05) !important;
+}
+
+html.solarized-light .bg-blue-650 {
+  background-color: #268bd2 !important; /* Solarized Blue */
+}
+
+/* Input and placeholder styling for Neo-Light mode */
+html.solarized-light input,
+html.solarized-light select,
+html.solarized-light textarea {
+  color: #073642 !important;
+  background-color: rgba(253, 246, 227, 0.8) !important;
+  border-color: rgba(7, 54, 66, 0.12) !important;
+}
+
+html.solarized-light input::placeholder,
+html.solarized-light textarea::placeholder {
+  color: #93a1a1 !important;
+  opacity: 0.8 !important;
+}
+
+/* Card Gradient Overrides - VERY IMPORTANT to make texts written on cards perfectly visible! */
+html.solarized-light .bg-gradient-to-b,
+html.solarized-light .bg-gradient-to-br,
+html.solarized-light [class*="bg-gradient-to-b"],
+html.solarized-light [class*="bg-gradient-to-br"] {
+  background-image: none !important;
+  background-color: rgba(238, 232, 213, 0.7) !important; /* Solarized Base2 */
+  border-color: rgba(7, 54, 66, 0.1) !important;
+}
+
+html.solarized-light .bg-gradient-to-b:hover,
+html.solarized-light .bg-gradient-to-br:hover,
+html.solarized-light [class*="bg-gradient-to-b"]:hover,
+html.solarized-light [class*="bg-gradient-to-br"]:hover {
+  background-color: rgba(238, 232, 213, 0.9) !important;
+  border-color: rgba(7, 54, 66, 0.2) !important;
+}
+
+/* Specific Card overrides for colored hover highlights */
+html.solarized-light .hover\:border-blue-500\/40:hover {
+  border-color: rgba(38, 139, 210, 0.4) !important;
+  box-shadow: 0 0 20px rgba(38, 139, 210, 0.15) !important;
+}
+html.solarized-light .hover\:border-purple-500\/40:hover {
+  border-color: rgba(108, 113, 196, 0.4) !important;
+  box-shadow: 0 0 20px rgba(108, 113, 196, 0.15) !important;
+}
+html.solarized-light .hover\:border-cyan-500\/40:hover {
+  border-color: rgba(42, 161, 152, 0.4) !important;
+  box-shadow: 0 0 20px rgba(42, 161, 152, 0.15) !important;
+}
+
+/* Badges and internal text colors of card options */
+html.solarized-light .bg-blue-500\/10,
+html.solarized-light .bg-blue-500\/20 {
+  background-color: rgba(38, 139, 210, 0.12) !important;
+  border-color: rgba(38, 139, 210, 0.25) !important;
+}
+html.solarized-light .bg-purple-500\/10,
+html.solarized-light .bg-purple-500\/20 {
+  background-color: rgba(108, 113, 196, 0.12) !important;
+  border-color: rgba(108, 113, 196, 0.25) !important;
+}
+html.solarized-light .bg-cyan-500\/10,
+html.solarized-light .bg-cyan-500\/20 {
+  background-color: rgba(42, 161, 152, 0.12) !important;
+  border-color: rgba(42, 161, 152, 0.25) !important;
+}
+
+/* Sidebar Logout & Brand Logo Overrides for True Solarized Light Theme */
+html.solarized-light button[class*="bg-red-950"],
+html.solarized-light [class*="bg-red-950"] {
+  background-color: rgba(220, 50, 47, 0.1) !important; /* Solarized Red 10% */
+  border-color: rgba(220, 50, 47, 0.25) !important;
+  color: #dc322f !important; /* Solarized Red */
+}
+
+html.solarized-light button[class*="bg-red-950"]:hover,
+html.solarized-light [class*="bg-red-950"]:hover {
+  background-color: rgba(220, 50, 47, 0.18) !important;
+  border-color: rgba(220, 50, 47, 0.4) !important;
+  color: #dc322f !important;
+}
+
+html.solarized-light button[class*="bg-red-950"] svg,
+html.solarized-light [class*="bg-red-950"] svg {
+  color: #dc322f !important;
+}
+
+/* Force high contrast "S" brand logo icon on Solarized Light */
+html.solarized-light .bg-gradient-to-br.from-blue-500.to-indigo-600 {
+  background-image: linear-gradient(135deg, #268bd2, #6c71c4) !important;
+  background-color: #268bd2 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 15px rgba(38, 139, 210, 0.25) !important;
 }
 
 @utility glass {
