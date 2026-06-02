@@ -33,10 +33,12 @@ html.solarized-light .text-white:not(button):not([class*="bg-"]):not([class*="fr
 }
 
 html.solarized-light .text-slate-300,
+html.solarized-light .text-slate-350,
 html.solarized-light .text-slate-400,
 html.solarized-light .text-slate-455,
 html.solarized-light .text-slate-450,
-html.solarized-light .text-slate-500 {
+html.solarized-light .text-slate-500,
+html.solarized-light .text-slate-550 {
   color: #586e75 !important; /* Solarized Base01 */
 }
 
@@ -267,4 +269,16 @@ body {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.35);
   border-color: rgba(147, 197, 253, 0.4);
   background: rgba(59, 130, 246, 0.9);
+}
+
+/* Match History Card Overrides for Solarized Light Theme */
+html.solarized-light .match-history-card {
+  background-image: none !important;
+  background-color: rgba(238, 232, 213, 0.7) !important; /* Solarized Base2 */
+  border-color: rgba(7, 54, 66, 0.1) !important;
+}
+
+html.solarized-light .match-history-card:hover {
+  background-color: rgba(238, 232, 213, 0.9) !important;
+  border-color: rgba(7, 54, 66, 0.2) !important;
 }

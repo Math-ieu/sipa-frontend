@@ -1353,7 +1353,7 @@ export function LobbyViews({
                         return (
                           <div
                             key={m.matchId}
-                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border backdrop-blur-md transition-all duration-300 gap-4 bg-gradient-to-r from-slate-900/50 to-slate-950/80 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${isUserWinner
+                            className={`match-history-card flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border backdrop-blur-md transition-all duration-300 gap-4 bg-gradient-to-r from-slate-900/50 to-slate-950/80 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${isUserWinner
                                 ? 'border-emerald-500/15 hover:border-emerald-500/40 shadow-sm shadow-emerald-500/5'
                                 : 'border-white/5 hover:border-white/20'
                               }`}
