@@ -5,6 +5,11 @@
 
 import { Card, GameState, ChatMessage } from '../types';
 
+export interface JoinRoomResult {
+  gameState: GameState;
+  hand: Card[];
+}
+
 // We bypass Firebase setup and use the custom full-stack WebSocket architecture.
 // Since we have a backend server resolving multiplayer, they can play online instantly!
 export const isFirebaseConfigured = true;
@@ -57,9 +62,11 @@ export async function createRoom(playerName: string, avatarId: string): Promise<
 }
 
 /**
- * Join an existing lobby and mount the persistent WebSocket listener
+ * Join an existing lobby and mount the persistent WebSocket listener.
+ * Waits for both `joined` (game state) and `your:hand` (private hand) before resolving,
+ * so reconnecting mid-game always restores the player's hand immediately.
  */
-export async function joinRoom(roomId: string, playerName: string, avatarId: string): Promise<GameState> {
+export async function joinRoom(roomId: string, playerName: string, avatarId: string): Promise<JoinRoomResult> {
   const playerId = await ensureAuthenticated();
 
   if (socket) {
@@ -77,16 +84,35 @@ export async function joinRoom(roomId: string, playerName: string, avatarId: str
     const ws = new WebSocket(wsUrl);
     socket = ws;
 
-    // Timeout if server doesn't respond
-    const timeout = setTimeout(() => {
+    let pendingGameState: GameState | null = null;
+    let pendingHand: Card[] | null = null;
+    let resolved = false;
+
+    const tryResolve = () => {
+      if (resolved || !pendingGameState || pendingHand === null) return;
+      resolved = true;
+      resolve({ gameState: pendingGameState, hand: pendingHand });
+    };
+
+    // Fallback: resolve after 3s even if your:hand hasn't arrived
+    const handTimeout = setTimeout(() => {
+      if (!resolved && pendingGameState) {
+        resolved = true;
+        resolve({ gameState: pendingGameState, hand: [] });
+      }
+    }, 3000);
+
+    // Timeout if server doesn't respond at all
+    const connectTimeout = setTimeout(() => {
       if (ws.readyState !== WebSocket.OPEN) {
+        clearTimeout(handTimeout);
         ws.close();
         reject(new Error("Impossible de se connecter au serveur en temps réel."));
       }
     }, 5000);
 
     ws.onopen = () => {
-      clearTimeout(timeout);
+      clearTimeout(connectTimeout);
       ws.send(JSON.stringify({
         type: 'join',
         payload: { roomId, playerId, playerName, avatarId }
@@ -98,14 +124,30 @@ export async function joinRoom(roomId: string, playerName: string, avatarId: str
         const msg = JSON.parse(event.data);
 
         if (msg.type === 'joined') {
-          resolve(msg.payload.gameState);
+          pendingGameState = msg.payload.gameState;
+          // In lobby, hand is always empty — no need to wait for your:hand
+          if (pendingGameState?.status === 'lobby') {
+            pendingHand = [];
+            clearTimeout(handTimeout);
+            tryResolve();
+          } else {
+            tryResolve();
+          }
         } else if (msg.type === 'error') {
+          clearTimeout(handTimeout);
           reject(new Error(msg.payload.message));
           ws.close();
         } else if (msg.type === 'room:updated') {
           roomSubscribers.forEach((sub) => sub(msg.payload));
         } else if (msg.type === 'your:hand') {
-          handSubscribers.forEach((sub) => sub(msg.payload));
+          pendingHand = msg.payload;
+          // Also forward to subscribers if already resolved (normal game flow)
+          if (resolved) {
+            handSubscribers.forEach((sub) => sub(msg.payload));
+          } else {
+            clearTimeout(handTimeout);
+            tryResolve();
+          }
         } else if (msg.type === 'chat:message') {
           chatMessageSubscribers.forEach((sub) => sub(msg.payload));
         } else if (msg.type === 'chat:history') {
@@ -116,9 +158,10 @@ export async function joinRoom(roomId: string, playerName: string, avatarId: str
       }
     };
 
-    ws.onerror = (err) => {
-      clearTimeout(timeout);
-      reject(new Error("Erreur de connexion avec le serveur."));
+    ws.onerror = () => {
+      clearTimeout(handTimeout);
+      clearTimeout(connectTimeout);
+      if (!resolved) reject(new Error("Erreur de connexion avec le serveur."));
     };
 
     ws.onclose = () => {
@@ -127,6 +170,20 @@ export async function joinRoom(roomId: string, playerName: string, avatarId: str
       }
     };
   });
+}
+
+/**
+ * Check if a room exists on the server and return its status.
+ * Returns null if the room doesn't exist or the server is unreachable.
+ */
+export async function checkRoom(roomId: string): Promise<{ roomId: string; status: string; playerCount: number } | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 /**

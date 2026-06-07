@@ -38,7 +38,8 @@ import {
   Volume2,
   VolumeX,
   Sliders,
-  Gamepad2
+  Gamepad2,
+  Link
 } from 'lucide-react';
 
 interface LobbyViewsProps {
@@ -51,6 +52,7 @@ interface LobbyViewsProps {
   onJoinOnline: (roomId: string, opts: { pseudo: string; avatarId: string }) => Promise<void> | void;
   theme?: string;
   onToggleTheme?: () => void;
+  initialRoomId?: string;
 }
 
 export const AVATARS = [
@@ -73,6 +75,7 @@ export function LobbyViews({
   onJoinOnline,
   theme,
   onToggleTheme,
+  initialRoomId,
 }: LobbyViewsProps) {
   const [activeTab, setActiveTab] = useState<'arena' | 'profile' | 'stats'>('arena');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
@@ -83,7 +86,9 @@ export function LobbyViews({
   const [selectedAvatarId, setSelectedAvatarId] = useState(() => {
     return currentUser?.avatarId || 'av1';
   });
-  const [mode, setMode] = useState<'root' | 'ai_config' | 'pass_config' | 'online_join'>('root');
+  const [mode, setMode] = useState<'root' | 'ai_config' | 'pass_config' | 'online_join'>(
+    initialRoomId ? 'online_join' : 'root'
+  );
 
   // Sync profile when currentUser updates
   useEffect(() => {
@@ -261,7 +266,7 @@ export function LobbyViews({
   const [passCount, setPassCount] = useState<number>(3); // Default 3
 
   // Online room state
-  const [enteredRoomId, setEnteredRoomId] = useState('');
+  const [enteredRoomId, setEnteredRoomId] = useState(initialRoomId || '');
   const [onlineError, setOnlineError] = useState('');
   const [onlineLoading, setOnlineLoading] = useState(false);
 
@@ -1471,6 +1476,7 @@ export function OnlineWaitingLobby({
   onLeaveLobby,
 }: OnlineWaitingLobbyProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const myPlayer = players.find((p) => p.id === myPlayerId);
   const isHost = myPlayer?.isHost;
 
@@ -1478,6 +1484,13 @@ export function OnlineWaitingLobby({
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/?room=${roomCode}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   return (
@@ -1493,25 +1506,41 @@ export function OnlineWaitingLobby({
         </div>
 
         {/* Code display Box */}
-        <div className="bg-white/5 border border-white/10 p-5 rounded-2xl text-center space-y-2 relative overflow-hidden backdrop-blur-sm">
+        <div className="bg-white/5 border border-white/10 p-5 rounded-2xl text-center space-y-3 relative overflow-hidden backdrop-blur-sm">
           <div className="text-xs text-slate-400 font-mono">CODE DU SALON</div>
           <div className="text-4xl font-mono font-black text-blue-400 tracking-wider">
             {roomCode}
           </div>
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition border border-white/20 text-xs font-semibold cursor-pointer"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" /> Copié !
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" /> Copier le code
-              </>
-            )}
-          </button>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <button
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition border border-white/20 text-xs font-semibold cursor-pointer"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Copié !
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copier le code
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleCopyLink}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/35 transition border border-blue-500/30 text-xs font-semibold cursor-pointer"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Lien copié !
+                </>
+              ) : (
+                <>
+                  <Link className="w-3.5 h-3.5" /> Copier le lien d'invitation
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Player List */}

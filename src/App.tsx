@@ -28,14 +28,14 @@ import {
   SUIT_LABELS,
   SUIT_SYMBOLS as SUIT_TEXT_SYMBOLS
 } from './utils/gameEngine';
-import { 
-  isFirebaseConfigured, 
-  ensureAuthenticated, 
-  createRoom, 
-  joinRoom, 
-  startOnlineGame, 
-  playOnlineCard, 
-  dealNextOnlineRound, 
+import {
+  isFirebaseConfigured,
+  ensureAuthenticated,
+  createRoom,
+  joinRoom,
+  startOnlineGame,
+  playOnlineCard,
+  dealNextOnlineRound,
   resetOnlineScores,
   subscribeToRoom,
   subscribeToPrivateHand,
@@ -43,7 +43,8 @@ import {
   getMe,
   logoutUser,
   initiateOnlineVote,
-  castOnlineVote
+  castOnlineVote,
+  checkRoom
 } from './utils/backendService';
 import { CardView } from './components/CardView';
 import { HistoryDrawer } from './components/HistoryDrawer';
@@ -109,6 +110,9 @@ export default function App() {
   const [onlinePrivateHand, setOnlinePrivateHand] = useState<Card[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; avatarId: string } | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isReconnecting, setIsReconnecting] = useState<boolean>(false);
+  // Room ID pre-rempli depuis un lien d'invitation (?room=XXXX dans l'URL)
+  const [inviteRoomId, setInviteRoomId] = useState<string | null>(null);
 
   // Authentication callbacks
   const handleLogin = (user: { id: string; username: string; avatarId: string }, token: string) => {
@@ -187,6 +191,44 @@ export default function App() {
             setMyPlayerId(data.user.id);
             localStorage.setItem('sipa_local_player_id', data.user.id);
             localStorage.setItem('sipa_player_pseudo', data.user.username);
+
+            // 1. Lien d'invitation : ?room=XXXX dans l'URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl) {
+              setInviteRoomId(roomFromUrl.toUpperCase());
+              // Nettoyer l'URL sans recharger la page
+              window.history.replaceState({}, '', window.location.pathname);
+              setIsAuthLoading(false);
+              return;
+            }
+
+            // 2. Reconnexion après rafraîchissement : salon actif en localStorage
+            const activeRoomId = localStorage.getItem('sipa_active_room_id');
+            if (activeRoomId) {
+              setIsReconnecting(true);
+              try {
+                const roomInfo = await checkRoom(activeRoomId);
+                if (roomInfo && !['canceled', 'game_over'].includes(roomInfo.status)) {
+                  const { gameState: roomState, hand } = await joinRoom(
+                    activeRoomId,
+                    data.user.username,
+                    data.user.avatarId
+                  );
+                  setGameState(roomState);
+                  setOnlinePrivateHand(hand);
+                } else {
+                  // Salon terminé ou inexistant
+                  localStorage.removeItem('sipa_active_room_id');
+                }
+              } catch (err) {
+                console.error('Reconnect failed:', err);
+                localStorage.removeItem('sipa_active_room_id');
+              } finally {
+                setIsReconnecting(false);
+              }
+            }
+
             setIsAuthLoading(false);
             return;
           }
@@ -393,9 +435,10 @@ export default function App() {
     setMyPlayerId(pid);
     await syncUserProfile(pid, opts.pseudo, opts.avatarId);
     const code = await createRoom(opts.pseudo, opts.avatarId);
-    // Connect WebSocket and register the host in the room on the server!
-    const roomState = await joinRoom(code, opts.pseudo, opts.avatarId);
+    const { gameState: roomState, hand } = await joinRoom(code, opts.pseudo, opts.avatarId);
+    localStorage.setItem('sipa_active_room_id', code);
     setGameState(roomState);
+    setOnlinePrivateHand(hand);
   };
 
   // Join online room
@@ -403,8 +446,11 @@ export default function App() {
     const pid = await ensureAuthenticated();
     setMyPlayerId(pid);
     await syncUserProfile(pid, opts.pseudo, opts.avatarId);
-    const roomState = await joinRoom(roomId, opts.pseudo, opts.avatarId);
+    const { gameState: roomState, hand } = await joinRoom(roomId, opts.pseudo, opts.avatarId);
+    localStorage.setItem('sipa_active_room_id', roomId);
+    setInviteRoomId(null); // Nettoyer l'ID d'invitation après avoir rejoint
     setGameState(roomState);
+    setOnlinePrivateHand(hand);
   };
 
   // Start online room game directly (Only Host can call)
@@ -683,6 +729,7 @@ export default function App() {
 
   // Return to core Welcome Menu
   const handleExitToLobby = () => {
+    localStorage.removeItem('sipa_active_room_id');
     setGameState({
       roomId: null,
       players: [],
@@ -705,6 +752,7 @@ export default function App() {
     setShowRoundSummary(false);
     setLocalVote(null);
     setShowGameControlConfirm(null);
+    setOnlinePrivateHand([]);
   };
 
   // ─── GAME CONTROL ACTIONS ─────────────────────────────────
@@ -935,7 +983,8 @@ export default function App() {
         <div className="glass p-8 max-w-xs w-full text-center space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-2xl">
           <div className="text-4xl font-black font-sans tracking-tighter text-white animate-pulse">SIPA</div>
           <div className="flex items-center justify-center gap-2 text-xs font-mono text-slate-400">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-400" /> Chargement de la session...
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-400" />
+            {isReconnecting ? 'Reconnexion à votre partie en cours...' : 'Chargement de la session...'}
           </div>
         </div>
       </div>
@@ -980,6 +1029,7 @@ export default function App() {
           onJoinOnline={handleJoinOnlineRoom}
           theme={theme}
           onToggleTheme={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
+          initialRoomId={inviteRoomId || undefined}
         />
       </div>
     );
