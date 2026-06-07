@@ -157,6 +157,14 @@ export default function App() {
   const stateRef = useRef(gameState);
   stateRef.current = gameState;
 
+  // Guard against double-click / rapid re-submission in online card play
+  const isPlayingCardRef = useRef(false);
+
+  // Reset card-play guard whenever the trick cards change (server confirmed the play)
+  useEffect(() => {
+    isPlayingCardRef.current = false;
+  }, [gameState.currentTrickCards]);
+
   // Sync volume state to sound engine
   useEffect(() => {
     sound.setMuted(isMuted);
@@ -461,6 +469,7 @@ export default function App() {
 
   // Human plays card in current turn
   const playHumanCard = async (card: Card) => {
+    if (isPlayingCardRef.current) return; // Prevent double-click / rapid re-submission
     if (gameState.status !== 'playing') return;
     if (gameState.currentTrickCards.length >= gameState.players.length) return;
 
@@ -482,15 +491,21 @@ export default function App() {
       return; // Force follow suite
     }
 
+    isPlayingCardRef.current = true;
     sound.playCardSlide();
 
     if (gameState.gameMode === 'online') {
       // Execute through online service update
-      if (!gameState.roomId) return;
+      if (!gameState.roomId) {
+        isPlayingCardRef.current = false;
+        return;
+      }
       await playOnlineCard(gameState.roomId, myPlayerId, card, me.name);
+      // Guard is released by the useEffect watching gameState.currentTrickCards
     } else {
-      // Execute through local offline engine
+      // Execute through local offline engine (synchronous — release immediately)
       executeCardPlayOffline(me.id, card, me.name);
+      isPlayingCardRef.current = false;
     }
   };
 
