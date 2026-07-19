@@ -215,6 +215,18 @@ export default function App() {
     localStorage.setItem('sipa_theme', theme);
   }, [theme]);
 
+  // Save local game state to localStorage on updates (AI / Pass & Play)
+  useEffect(() => {
+    if (localGameId && (gameState.gameMode === 'ai' || gameState.gameMode === 'pass_and_play') && gameState.status !== 'lobby') {
+      const stateToSave = {
+        gameState,
+        myPlayerId,
+        hiddenHands,
+      };
+      localStorage.setItem(`sipa_local_game_${localGameId}`, JSON.stringify(stateToSave));
+    }
+  }, [localGameId, gameState, myPlayerId, hiddenHands]);
+
   // Load / Setup unique player identities and sessions
   useEffect(() => {
     const setupIdentity = async () => {
@@ -228,7 +240,31 @@ export default function App() {
             localStorage.setItem('sipa_local_player_id', data.user.id);
             localStorage.setItem('sipa_player_pseudo', data.user.username);
 
-            // 1. Gestion des salons (Lien URL et Reconnexions)
+            // 1. Gestion des parties locales (IA / Pass & Play)
+            const localMatch = window.location.pathname.match(/\/arene-de-jeu\/(ia|local)\/([a-zA-Z0-9-]+)/i);
+            if (localMatch) {
+              const gameId = localMatch[2];
+              const savedLocalGameStr = localStorage.getItem(`sipa_local_game_${gameId}`);
+              if (savedLocalGameStr) {
+                try {
+                  const savedLocalGame = JSON.parse(savedLocalGameStr);
+                  setGameState(savedLocalGame.gameState);
+                  setLocalGameId(gameId);
+                  setMyPlayerId(savedLocalGame.myPlayerId);
+                  setHiddenHands(savedLocalGame.hiddenHands || []);
+                  setIsAuthLoading(false);
+                  return;
+                } catch (e) {
+                  console.error('Failed to parse saved local game:', e);
+                  localStorage.removeItem(`sipa_local_game_${gameId}`);
+                }
+              }
+              // Redirect to arena configuration page if state is not found
+              window.history.replaceState({}, '', '/arene-de-jeu');
+              setPath('/arene-de-jeu');
+            }
+
+            // 2. Gestion des salons (Lien URL et Reconnexions)
             const roomMatch = window.location.pathname.match(/\/arene-de-jeu\/multijoueur\/([a-zA-Z0-9]+)/i);
             const roomFromUrl = roomMatch ? roomMatch[1].toUpperCase() : null;
             const activeRoomId = localStorage.getItem('sipa_active_room_id');
@@ -851,6 +887,9 @@ export default function App() {
   // Return to core Welcome Menu
   const handleExitToLobby = () => {
     localStorage.removeItem('sipa_active_room_id');
+    if (localGameId) {
+      localStorage.removeItem(`sipa_local_game_${localGameId}`);
+    }
     setLocalGameId(null);
     setGameState({
       roomId: null,
