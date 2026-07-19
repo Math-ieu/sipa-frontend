@@ -316,50 +316,66 @@ export async function castOnlineVote(roomId: string, vote: boolean): Promise<voi
  * Register a new user with password and avatar (including anti-bot honeypot check)
  */
 export async function registerUser(username: string, password: string, avatarId: string, honeypotValue: string): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ username, password, avatarId, email_confirm: honeypotValue })
-  });
+  const target = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password, avatarId, email_confirm: honeypotValue })
+    });
 
-  if (!response.ok) {
-    try {
-      const errData = await response.json();
-      throw new Error(errData.error || "Erreur d'inscription");
-    } catch (parseErr) {
-      if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
-      throw new Error(`Impossible de joindre le serveur (code ${response.status}). Vérifiez que le backend est démarré sur le port 3000.`);
+    if (!response.ok) {
+      try {
+        const errData = await response.json();
+        throw new Error(errData.error || "Erreur d'inscription");
+      } catch (parseErr) {
+        if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
+        throw new Error(`Impossible de joindre le serveur (code ${response.status}). Vérifiez que le backend est démarré et accessible à l'adresse : ${target}`);
+      }
     }
-  }
 
-  return await response.json();
+    return await response.json();
+  } catch (networkErr: any) {
+    if (networkErr.message && networkErr.message.includes('Impossible de joindre')) {
+      throw networkErr;
+    }
+    throw new Error(`Erreur réseau : Impossible de contacter le serveur à l'adresse ${target}. Assurez-vous que le backend est en cours d'exécution.`);
+  }
 }
 
 /**
  * Log in an existing user
  */
 export async function loginUser(username: string, password: string): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ username, password })
-  });
+  const target = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    });
 
-  if (!response.ok) {
-    try {
-      const errData = await response.json();
-      throw new Error(errData.error || "Erreur de connexion");
-    } catch (parseErr) {
-      if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
-      throw new Error(`Impossible de joindre le serveur (code ${response.status}). Vérifiez que le backend est démarré sur le port 3000.`);
+    if (!response.ok) {
+      try {
+        const errData = await response.json();
+        throw new Error(errData.error || "Erreur de connexion");
+      } catch (parseErr) {
+        if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr;
+        throw new Error(`Impossible de joindre le serveur (code ${response.status}). Vérifiez que le backend est démarré et accessible à l'adresse : ${target}`);
+      }
     }
-  }
 
-  return await response.json();
+    return await response.json();
+  } catch (networkErr: any) {
+    if (networkErr.message && networkErr.message.includes('Impossible de joindre')) {
+      throw networkErr;
+    }
+    throw new Error(`Erreur réseau : Impossible de contacter le serveur à l'adresse ${target}. Assurez-vous que le backend est en cours d'exécution.`);
+  }
 }
 
 /**

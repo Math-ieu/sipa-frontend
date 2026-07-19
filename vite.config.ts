@@ -4,6 +4,8 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
+  const backendPort = process.env.VITE_BACKEND_PORT || process.env.PORT || '3000';
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -16,11 +18,11 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: `http://localhost:${backendPort}`,
           changeOrigin: true,
         },
         '/ws': {
-          target: 'ws://localhost:3000',
+          target: `ws://localhost:${backendPort}`,
           ws: true,
         },
       },
