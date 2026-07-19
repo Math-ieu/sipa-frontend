@@ -7,7 +7,7 @@ import {
   subscribeToChatMessage, 
   subscribeToChatHistory 
 } from '../utils/backendService';
-import { AVATARS } from './LobbyViews';
+import { AVATARS } from '../utils/avatars';
 
 interface ChatPanelProps {
   roomId: string;

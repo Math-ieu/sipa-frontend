@@ -92,53 +92,58 @@ export function CardView({
     <motion.div
       onClick={canPlay && onClick ? onClick : undefined}
       className={`
-        ${sizeClasses[size]} 
-        relative  border select-none transition-all duration-300 overflow-hidden
+        ${sizeClasses[size]} playing-card
+        relative border select-none transition-all duration-300 overflow-hidden
         ${isWinning 
-          ? 'bg-gradient-to-br from-white to-amber-50/70 border-amber-500 text-slate-900 shadow-[0_0_25px_rgba(245,158,11,0.55)] cursor-pointer ring-2 ring-amber-400/45' 
+          ? 'bg-gradient-to-br from-white via-amber-50/90 to-amber-100/70 border-amber-500 text-slate-950 shadow-[0_12px_28px_rgba(245,158,11,0.45)] cursor-pointer ring-2 ring-amber-400/40' 
           : canPlay && onClick
-            ? 'bg-white border-slate-200 text-slate-950 hover:border-blue-500 hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] cursor-pointer shadow-sm'
-            : 'bg-neutral-50/90 border-slate-200 text-neutral-400 opacity-55 cursor-not-allowed shadow-none'
+            ? 'bg-gradient-to-b from-white to-slate-50/95 border-slate-250 text-slate-950 hover:border-blue-500 hover:shadow-[0_12px_24px_-8px_rgba(59,130,246,0.3)] cursor-pointer shadow-md'
+            : 'bg-slate-100/90 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed shadow-none'
         }
       `}
       whileHover={canPlay && onClick ? { scale: 1.06, y: -8, zIndex: 10 } : {}}
       whileTap={canPlay && onClick ? { scale: 0.95 } : {}}
       transition={{ type: 'spring', stiffness: 450, damping: 20 }}
     >
+      {/* Premium Inner Cardstock Border */}
+      <div className={`absolute inset-1 md:inset-1.5 border rounded-[inherit] pointer-events-none ${
+        isWinning ? 'border-amber-200/40' : 'border-slate-100/80'
+      }`} />
+
       {/* Top Left Indicator */}
-      <div className="absolute top-1 left-1 md:top-1.5 md:left-1.5 flex flex-col items-center leading-none">
+      <div className="absolute top-1.5 left-1.5 md:top-2 md:left-2 flex flex-col items-center leading-none">
         <span className={`font-sans font-black tracking-tight leading-none ${rankSizeClasses[size]} ${suitColorClass}`}>
           {card.rank}
         </span>
-        <span className={`${symbolSizeClasses[size]} ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]`}>
+        <span className={`${symbolSizeClasses[size]} ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]`}>
           {symbol}
         </span>
       </div>
 
       {/* Middle Huge Indicator */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span className={`${middleSymbolSizeClasses[size]} select-none ${suitColorClass} opacity-90 font-serif filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+        <span className={`${middleSymbolSizeClasses[size]} select-none ${suitColorClass} opacity-85 font-serif filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.05)]`}>
           {symbol}
         </span>
       </div>
 
       {/* Bottom Right Indicator */}
-      <div className="absolute bottom-1 right-1 md:bottom-1.5 md:right-1.5 flex flex-col items-center leading-none rotate-180">
+      <div className="absolute bottom-1.5 right-1.5 md:bottom-2 md:right-2 flex flex-col items-center leading-none rotate-180">
         <span className={`font-sans font-black tracking-tight leading-none ${rankSizeClasses[size]} ${suitColorClass}`}>
           {card.rank}
         </span>
-        <span className={`${symbolSizeClasses[size]} ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]`}>
+        <span className={`${symbolSizeClasses[size]} ${suitColorClass} filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]`}>
           {symbol}
         </span>
       </div>
 
-
-
-      {/* Follow-suit Lock Overlay - Clean frosted lock */}
+      {/* Follow-suit Lock Overlay - High-end Glassmorphic style */}
       {!canPlay && (
-        <div className="absolute inset-0 bg-slate-950/40 rounded-[inherit] flex items-center justify-center flex-col gap-1 pointer-events-none backdrop-blur-xs">
-          <Lock className="w-4 h-4 text-white drop-shadow-md" />
-          <span className="text-[8px] md:text-[9px] text-white text-center font-bold px-1.5 py-0.5 bg-black/60 rounded uppercase tracking-wider font-mono">
+        <div className="absolute inset-0 bg-slate-950/45 rounded-[inherit] flex items-center justify-center flex-col gap-1.5 pointer-events-none backdrop-blur-[2px] transition-all duration-300">
+          <div className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-slate-900/80 border border-white/10 flex items-center justify-center shadow-lg shadow-black/30 transform scale-90 md:scale-100">
+            <Lock className="w-3 h-3 md:w-3.5 md:h-3.5 text-white/90" />
+          </div>
+          <span className="text-[7.5px] md:text-[9px] text-slate-200 text-center font-mono font-bold tracking-wider px-2 py-0.5 bg-slate-950/80 border border-white/10 rounded-full shadow-md uppercase">
             {suitLabel}
           </span>
         </div>

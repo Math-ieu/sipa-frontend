@@ -48,7 +48,15 @@ import {
 } from './utils/backendService';
 import { CardView } from './components/CardView';
 import { HistoryDrawer } from './components/HistoryDrawer';
-import { LobbyViews, OnlineWaitingLobby, AVATARS } from './components/LobbyViews';
+import { OnlineWaitingLobby } from './components/OnlineWaitingLobby';
+import { AppLayout } from './components/AppLayout';
+import { AVATARS } from './utils/avatars';
+import { ArenaPage } from './pages/ArenaPage';
+import { AIConfigPage } from './pages/AIConfigPage';
+import { LocalConfigPage } from './pages/LocalConfigPage';
+import { OnlineConfigPage } from './pages/OnlineConfigPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { StatsPage } from './pages/StatsPage';
 import { ChatPanel } from './components/ChatPanel';
 import AuthPage from './components/AuthPage';
 import { sound } from './utils/sound';
@@ -113,6 +121,8 @@ export default function App() {
   const [isReconnecting, setIsReconnecting] = useState<boolean>(false);
   // Room ID pre-rempli depuis un lien d'invitation (?room=XXXX dans l'URL)
   const [inviteRoomId, setInviteRoomId] = useState<string | null>(null);
+  // Identifiant unique par partie locale (IA / Pass & Play) pour des URLs distinctes
+  const [localGameId, setLocalGameId] = useState<string | null>(null);
 
   // Authentication callbacks
   const handleLogin = (user: { id: string; username: string; avatarId: string }, token: string) => {
@@ -140,6 +150,24 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'solarized'>('dark');
+  
+  // Custom router state
+  const [path, setPath] = useState(window.location.pathname);
+
+  const navigate = (newPath: string) => {
+    window.history.pushState({}, '', newPath);
+    setPath(newPath);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const activeTab: 'arena' | 'profile' | 'stats' = path === '/profil' ? 'profile' : path === '/stats' ? 'stats' : 'arena';
   
   // Pass & Play Specific State
   const [showPassOverlay, setShowPassOverlay] = useState(false);
@@ -200,19 +228,45 @@ export default function App() {
             localStorage.setItem('sipa_local_player_id', data.user.id);
             localStorage.setItem('sipa_player_pseudo', data.user.username);
 
-            // 1. Lien d'invitation : ?room=XXXX dans l'URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const roomFromUrl = urlParams.get('room');
+            // 1. Gestion des salons (Lien URL et Reconnexions)
+            const roomMatch = window.location.pathname.match(/\/arene-de-jeu\/multijoueur\/([a-zA-Z0-9]+)/i);
+            const roomFromUrl = roomMatch ? roomMatch[1].toUpperCase() : null;
+            const activeRoomId = localStorage.getItem('sipa_active_room_id');
+
+            // Si le salon dans l'URL correspond au salon actif stocké (rafraîchissement)
+            if (roomFromUrl && roomFromUrl === activeRoomId) {
+              setIsReconnecting(true);
+              try {
+                const roomInfo = await checkRoom(activeRoomId);
+                if (roomInfo && !['canceled', 'game_over'].includes(roomInfo.status)) {
+                  const { gameState: roomState, hand } = await joinRoom(
+                    activeRoomId,
+                    data.user.username,
+                    data.user.avatarId
+                  );
+                  setGameState(roomState);
+                  setOnlinePrivateHand(hand);
+                  setIsReconnecting(false);
+                  setIsAuthLoading(false);
+                  return;
+                }
+              } catch (err) {
+                console.error('Direct reconnect from URL failed:', err);
+              }
+              setIsReconnecting(false);
+            }
+
+            // Si c'est un autre salon (lien d'invitation externe)
             if (roomFromUrl) {
-              setInviteRoomId(roomFromUrl.toUpperCase());
-              // Nettoyer l'URL sans recharger la page
-              window.history.replaceState({}, '', window.location.pathname);
+              setInviteRoomId(roomFromUrl);
+              // Rediriger vers la page multijoueur pour configurer la connexion
+              window.history.replaceState({}, '', '/arene-de-jeu/multijoueur');
+              setPath('/arene-de-jeu/multijoueur');
               setIsAuthLoading(false);
               return;
             }
 
-            // 2. Reconnexion après rafraîchissement : salon actif en localStorage
-            const activeRoomId = localStorage.getItem('sipa_active_room_id');
+            // Reconnexion standard si aucun salon dans l'URL mais stocké localement
             if (activeRoomId) {
               setIsReconnecting(true);
               try {
@@ -226,7 +280,6 @@ export default function App() {
                   setGameState(roomState);
                   setOnlinePrivateHand(hand);
                 } else {
-                  // Salon terminé ou inexistant
                   localStorage.removeItem('sipa_active_room_id');
                 }
               } catch (err) {
@@ -251,6 +304,51 @@ export default function App() {
     };
     setupIdentity();
   }, []);
+
+  // Sync room ID and tabs with URL pathnames
+  useEffect(() => {
+    if (gameState.gameMode === 'online' && gameState.roomId) {
+      const expectedPath = `/arene-de-jeu/multijoueur/${gameState.roomId}`;
+      if (window.location.pathname !== expectedPath) {
+        window.history.replaceState({}, '', expectedPath);
+        setPath(expectedPath);
+      }
+    } else if (gameState.status === 'lobby') {
+      if (activeTab === 'profile') {
+        const expectedPath = '/profil';
+        if (window.location.pathname !== expectedPath) {
+          window.history.replaceState({}, '', expectedPath);
+          setPath(expectedPath);
+        }
+      } else if (activeTab === 'stats') {
+        const expectedPath = '/stats';
+        if (window.location.pathname !== expectedPath) {
+          window.history.replaceState({}, '', expectedPath);
+          setPath(expectedPath);
+        }
+      } else {
+        // Arena tab : ne pas écraser les sous-routes (/arene-de-jeu/ia, /local, /multijoueur)
+        if (!window.location.pathname.startsWith('/arene-de-jeu')) {
+          window.history.replaceState({}, '', '/arene-de-jeu');
+          setPath('/arene-de-jeu');
+        }
+      }
+    } else if (localGameId) {
+      // En jeu local : URL unique par partie
+      const modeSlug = gameState.gameMode === 'ai' ? 'ia' : 'local';
+      const expectedPath = `/arene-de-jeu/${modeSlug}/${localGameId}`;
+      if (window.location.pathname !== expectedPath) {
+        window.history.replaceState({}, '', expectedPath);
+        setPath(expectedPath);
+      }
+    } else {
+      const expectedPath = '/arene-de-jeu';
+      if (window.location.pathname !== expectedPath) {
+        window.history.replaceState({}, '', expectedPath);
+        setPath(expectedPath);
+      }
+    }
+  }, [gameState.roomId, gameState.gameMode, gameState.status, activeTab, localGameId]);
 
   // Online multiplayer WebSocket subscription
   useEffect(() => {
@@ -355,6 +453,10 @@ export default function App() {
       players[i].hand = hands[i];
     }
 
+    // Générer un ID unique pour cette partie IA
+    const gameId = crypto.randomUUID().slice(0, 8);
+    setLocalGameId(gameId);
+
     setGameState({
       roomId: null,
       players,
@@ -411,6 +513,10 @@ export default function App() {
     for (let i = 0; i < players.length; i++) {
       players[i].hand = hands[i];
     }
+
+    // Générer un ID unique pour cette partie locale
+    const gameId = crypto.randomUUID().slice(0, 8);
+    setLocalGameId(gameId);
 
     setGameState({
       roomId: null,
@@ -745,6 +851,7 @@ export default function App() {
   // Return to core Welcome Menu
   const handleExitToLobby = () => {
     localStorage.removeItem('sipa_active_room_id');
+    setLocalGameId(null);
     setGameState({
       roomId: null,
       players: [],
@@ -1032,20 +1139,37 @@ export default function App() {
       );
     }
 
+    // Render the appropriate page based on the current path
+    const renderLobbyPage = () => {
+      if (path === '/profil') {
+        return <ProfilePage currentUser={currentUser} onLogin={handleLogin} onLogout={handleLogout} />;
+      }
+      if (path === '/stats') {
+        return <StatsPage currentUser={currentUser} />;
+      }
+      if (path === '/arene-de-jeu/ia') {
+        return <AIConfigPage currentUser={currentUser} onJoinLocalAI={startLocalAIGame} onNavigate={navigate} />;
+      }
+      if (path === '/arene-de-jeu/local') {
+        return <LocalConfigPage currentUser={currentUser} onJoinPassAndPlay={startPassAndPlayGame} onNavigate={navigate} />;
+      }
+      if (path === '/arene-de-jeu/multijoueur') {
+        return <OnlineConfigPage currentUser={currentUser} onCreateOnline={handleCreateOnlineRoom} onJoinOnline={handleJoinOnlineRoom} onNavigate={navigate} initialRoomId={inviteRoomId || undefined} />;
+      }
+      return <ArenaPage onNavigate={navigate} />;
+    };
+
     return (
       <div className="min-h-screen bg-mesh text-slate-150 selection:bg-blue-500 relative flex flex-col justify-stretch">
-        <LobbyViews
-          currentUser={currentUser}
-          onLogin={handleLogin}
-          onLogout={handleLogout}
-          onJoinLocalAI={startLocalAIGame}
-          onJoinPassAndPlay={startPassAndPlayGame}
-          onCreateOnline={handleCreateOnlineRoom}
-          onJoinOnline={handleJoinOnlineRoom}
+        <AppLayout
+          activeTab={activeTab}
+          onNavigate={navigate}
           theme={theme}
           onToggleTheme={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
-          initialRoomId={inviteRoomId || undefined}
-        />
+          onLogout={handleLogout}
+        >
+          {renderLobbyPage()}
+        </AppLayout>
       </div>
     );
   }

@@ -145,22 +145,23 @@ html.solarized-light textarea::placeholder {
 }
 
 /* Card Gradient Overrides - VERY IMPORTANT to make texts written on cards perfectly visible! */
-html.solarized-light .bg-gradient-to-b,
-html.solarized-light .bg-gradient-to-br,
-html.solarized-light [class*="bg-gradient-to-b"],
-html.solarized-light [class*="bg-gradient-to-br"] {
+html.solarized-light .bg-gradient-to-b:not(.playing-card),
+html.solarized-light .bg-gradient-to-br:not(.playing-card),
+html.solarized-light [class*="bg-gradient-to-b"]:not(.playing-card),
+html.solarized-light [class*="bg-gradient-to-br"]:not(.playing-card) {
   background-image: none !important;
   background-color: rgba(238, 232, 213, 0.7) !important; /* Solarized Base2 */
   border-color: rgba(7, 54, 66, 0.1) !important;
 }
 
-html.solarized-light .bg-gradient-to-b:hover,
-html.solarized-light .bg-gradient-to-br:hover,
-html.solarized-light [class*="bg-gradient-to-b"]:hover,
-html.solarized-light [class*="bg-gradient-to-br"]:hover {
+html.solarized-light .bg-gradient-to-b:not(.playing-card):hover,
+html.solarized-light .bg-gradient-to-br:not(.playing-card):hover,
+html.solarized-light [class*="bg-gradient-to-b"]:not(.playing-card):hover,
+html.solarized-light [class*="bg-gradient-to-br"]:not(.playing-card):hover {
   background-color: rgba(238, 232, 213, 0.9) !important;
   border-color: rgba(7, 54, 66, 0.2) !important;
 }
+
 
 /* Specific Card overrides for colored hover highlights */
 html.solarized-light .hover\:border-blue-500\/40:hover {
@@ -281,4 +282,27 @@ html.solarized-light .match-history-card {
 html.solarized-light .match-history-card:hover {
   background-color: rgba(238, 232, 213, 0.9) !important;
   border-color: rgba(7, 54, 66, 0.2) !important;
+}
+
+/* Smooth premium custom scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+html.solarized-light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(7, 54, 66, 0.15) !important;
+}
+html.solarized-light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(7, 54, 66, 0.3) !important;
 }

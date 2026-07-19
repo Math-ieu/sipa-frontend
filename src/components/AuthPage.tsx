@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { registerUser, loginUser } from '../utils/backendService';
-import { AVATARS } from './LobbyViews';
+import { AVATARS } from '../utils/avatars';
 import { User, Lock, RefreshCw, Sparkles, Key, Eye, EyeOff } from 'lucide-react';
 
 interface AuthPageProps {
