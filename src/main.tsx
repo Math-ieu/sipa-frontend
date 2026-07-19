@@ -9,15 +9,27 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// Register Service Worker for PWA offline capabilities
+// Désenregistrement de tout service worker actif et nettoyage du Cache Storage de la PWA
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((reg) => {
-        console.log('✅ SIPA Service Worker enregistré avec succès ! Portée :', reg.scope);
-      })
-      .catch((err) => {
-        console.error('❌ Échec de l\'enregistrement du Service Worker :', err);
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister().then((success) => {
+        if (success) {
+          console.log('🗑️ Service Worker unregistré avec succès !');
+        }
       });
+    }
+  });
+}
+
+if ('caches' in window) {
+  caches.keys().then((cacheNames) => {
+    cacheNames.forEach((cacheName) => {
+      caches.delete(cacheName).then((success) => {
+        if (success) {
+          console.log(`🗑️ Cache ${cacheName} supprimé avec succès !`);
+        }
+      });
+    });
   });
 }
