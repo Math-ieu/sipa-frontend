@@ -4,7 +4,7 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
-  const backendPort = process.env.VITE_BACKEND_PORT || process.env.PORT || '3000';
+  const backendPort = process.env.VITE_BACKEND_PORT || process.env.PORT || '10000';
 
   return {
     plugins: [react(), tailwindcss()],
