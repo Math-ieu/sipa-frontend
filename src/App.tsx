@@ -131,6 +131,12 @@ export default function App() {
     localStorage.setItem('sipa_player_pseudo', user.username);
     setMyPlayerId(user.id);
     setCurrentUser(user);
+
+    // Redirect if they have an active invitation room code
+    if (inviteRoomId) {
+      window.history.replaceState({}, '', '/arene-de-jeu/multijoueur');
+      setPath('/arene-de-jeu/multijoueur');
+    }
   };
 
   const handleLogout = async () => {
@@ -230,6 +236,17 @@ export default function App() {
   // Load / Setup unique player identities and sessions
   useEffect(() => {
     const setupIdentity = async () => {
+      // 1. Toujours parser le code salon de l'invitation (pathname ou paramètre de requête)
+      const roomMatch = window.location.pathname.match(/\/arene-de-jeu\/multijoueur\/([a-zA-Z0-9]+)/i);
+      const roomFromPath = roomMatch ? roomMatch[1].toUpperCase() : null;
+      const params = new URLSearchParams(window.location.search);
+      const roomFromQuery = params.get('room') ? params.get('room')!.toUpperCase() : null;
+      const roomFromUrl = roomFromPath || roomFromQuery;
+
+      if (roomFromUrl) {
+        setInviteRoomId(roomFromUrl);
+      }
+
       const token = localStorage.getItem('sipa_auth_token');
       if (token) {
         try {
@@ -265,8 +282,6 @@ export default function App() {
             }
 
             // 2. Gestion des salons (Lien URL et Reconnexions)
-            const roomMatch = window.location.pathname.match(/\/arene-de-jeu\/multijoueur\/([a-zA-Z0-9]+)/i);
-            const roomFromUrl = roomMatch ? roomMatch[1].toUpperCase() : null;
             const activeRoomId = localStorage.getItem('sipa_active_room_id');
 
             // Si le salon dans l'URL correspond au salon actif stocké (rafraîchissement)
@@ -294,7 +309,6 @@ export default function App() {
 
             // Si c'est un autre salon (lien d'invitation externe)
             if (roomFromUrl) {
-              setInviteRoomId(roomFromUrl);
               // Rediriger vers la page multijoueur pour configurer la connexion
               window.history.replaceState({}, '', '/arene-de-jeu/multijoueur');
               setPath('/arene-de-jeu/multijoueur');
