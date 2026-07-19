@@ -14,9 +14,15 @@ export interface JoinRoomResult {
 // Since we have a backend server resolving multiplayer, they can play online instantly!
 export const isFirebaseConfigured = true;
 
-// Environment-aware Backend URLs (dev proxy fallback is used if these are empty)
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-export const WS_BASE_URL = import.meta.env.VITE_WS_URL || '';
+// Environment-aware Backend URLs (dev proxy fallback is used if these are empty on localhost)
+const isLocalhost = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (isLocalhost ? '' : 'https://sipa-backend-99v8.onrender.com');
+
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL || 
+  (isLocalhost ? '' : 'wss://sipa-backend-99v8.onrender.com/ws');
 
 // Placeholder exports to keep types and structures consistent
 export let auth: any = null;
