@@ -7,6 +7,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Card, Suit } from '../types';
 import { SUIT_SYMBOLS, SUIT_COLORS, SUIT_LABELS } from '../utils/gameEngine';
+import { getCardBackStyle, getCachedEquipped } from '../utils/cosmetics';
 import { Lock } from 'lucide-react';
 
 interface CardViewProps {
@@ -17,6 +18,7 @@ interface CardViewProps {
   onClick?: () => void;
   size?: 'sm' | 'md' | 'lg';
   isWinning?: boolean;
+  cardBackId?: string;
 }
 
 export function CardView({
@@ -26,6 +28,7 @@ export function CardView({
   onClick,
   size = 'md',
   isWinning = false,
+  cardBackId,
 }: CardViewProps) {
   const symbol = SUIT_SYMBOLS[card.suit];
   const colorClass = SUIT_COLORS[card.suit];
@@ -56,22 +59,26 @@ export function CardView({
 
   const suitLabel = SUIT_LABELS[card.suit];
 
-  // Face down design (Back of the card) - Frosted Glass style
+  // Face down design (Back of the card) - Dynamic equipped cosmetic style
   if (!faceUp) {
+    const backStyle = getCardBackStyle(cardBackId || getCachedEquipped().cardBack);
     return (
       <motion.div
-        className={`${sizeClasses[size]} relative flex items-center justify-center bg-gradient-to-br from-indigo-950/80 via-slate-950/90 to-purple-950/80 border border-white/15 backdrop-blur-md select-none overflow-hidden shadow-2xl`}
+        onClick={onClick}
+        className={`${sizeClasses[size]} relative flex items-center justify-center border backdrop-blur-md select-none overflow-hidden shadow-2xl ${backStyle.outerBg} ${onClick ? 'cursor-pointer' : ''}`}
         whileHover={onClick ? { scale: 1.05, y: -4 } : {}}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       >
         {/* Futuristic Card Pattern Back */}
         <div className="absolute inset-1 rounded-lg border border-white/5 bg-grid opacity-20 pointer-events-none" />
-        <div className="absolute inset-2 bg-gradient-to-br from-slate-950/90 to-slate-900/90 rounded-md flex flex-col items-center justify-center border border-white/10 backdrop-blur-sm shadow-[inset_0_0_12px_rgba(99,102,241,0.25)]">
-          <div className="text-indigo-400 font-mono tracking-widest text-[9px] md:text-xs font-black select-none uppercase">
+        <div className={`absolute inset-2 rounded-md flex flex-col items-center justify-center border backdrop-blur-sm ${backStyle.innerBg}`}>
+          <div className={`font-mono tracking-widest text-[9px] md:text-xs font-black select-none uppercase ${backStyle.accentText}`}>
             SIPA
           </div>
-          <div className="w-5 h-5 rounded-full border border-indigo-400/40 mt-1.5 flex items-center justify-center bg-indigo-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-            <div className="w-2 h-2 bg-gradient-to-r from-cyan-400 to-indigo-400 rounded-full animate-pulse" />
+          <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border mt-1.5 flex items-center justify-center ${backStyle.orbBorder}`}>
+            <span className={`text-[10px] md:text-xs font-bold leading-none ${backStyle.accentText}`}>
+              {backStyle.emblem}
+            </span>
           </div>
         </div>
       </motion.div>

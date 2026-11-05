@@ -158,6 +158,58 @@ class SoundEngine {
       osc.stop(now + 0.25);
     } catch (e) {}
   }
+
+  // Soft tactile UI navigation click
+  playMenuClick() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.exponentialRampToValueAtTime(240, now + 0.05);
+      
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.linearRampToValueAtTime(0.001, now + 0.05);
+      
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      
+      osc.start();
+      osc.stop(now + 0.05);
+    } catch (e) {}
+  }
+
+  // Mode selection whoosh sound
+  playModeSelect() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(520, now + 0.12);
+      
+      gain.gain.setValueAtTime(0.07, now);
+      gain.gain.linearRampToValueAtTime(0.001, now + 0.14);
+      
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      
+      osc.start();
+      osc.stop(now + 0.14);
+    } catch (e) {}
+  }
 }
 
 export const sound = new SoundEngine();

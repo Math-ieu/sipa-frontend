@@ -1,0 +1,72 @@
+{
+  "id": "/",
+  "name": "SIPA Arena — L'Art du Pli",
+  "short_name": "SIPA",
+  "description": "Jeu de cartes stratégique SIPA : Solo contre l'IA, Pass & Play local et Multijoueur en ligne avec progression, titres et récompenses.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Solo contre l'IA",
+      "short_name": "Solo IA",
+      "description": "Lancer immédiatement une partie contre les bots",
+      "url": "/arene-de-jeu/ia",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Pass & Play Local",
+      "short_name": "Local",
+      "description": "Jouer à plusieurs sur le même appareil",
+      "url": "/arene-de-jeu/local",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Multijoueur En Ligne",
+      "short_name": "En Ligne",
+      "description": "Créer ou rejoindre un salon en ligne",
+      "url": "/arene-de-jeu/multijoueur",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Passeport & Récompenses",
+      "short_name": "Passeport",
+      "description": "Voir votre niveau, vos titres et vos cosmétiques",
+      "url": "/profil",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
+

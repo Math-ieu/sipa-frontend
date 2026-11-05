@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { registerUser, loginUser } from '../utils/backendService';
-import { AVATARS } from '../utils/avatars';
+import { BASE_AVATARS } from '../utils/avatars';
 import { User, Lock, RefreshCw, Sparkles, Key, Eye, EyeOff } from 'lucide-react';
 
 interface AuthPageProps {
@@ -214,7 +214,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                   Sélectionnez votre Sceau
                 </label>
                 <div className="grid grid-cols-8 gap-2">
-                  {AVATARS.map((av) => (
+                  {BASE_AVATARS.map((av) => (
                     <button
                       key={av.id}
                       type="button"

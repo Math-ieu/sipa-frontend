@@ -50,7 +50,15 @@ import { CardView } from './components/CardView';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { OnlineWaitingLobby } from './components/OnlineWaitingLobby';
 import { AppLayout } from './components/AppLayout';
+import { HelpDrawer } from './components/HelpDrawer';
 import { AVATARS } from './utils/avatars';
+import {
+  fetchUserProgression,
+  getCachedEquipped,
+  getFrameStyle,
+  getTableThemeStyle,
+  LatestMatchReward,
+} from './utils/cosmetics';
 import { ArenaPage } from './pages/ArenaPage';
 import { AIConfigPage } from './pages/AIConfigPage';
 import { LocalConfigPage } from './pages/LocalConfigPage';
@@ -85,8 +93,6 @@ import {
   X,
   AlertTriangle,
   Flag,
-  Sun,
-  Moon,
   Menu
 } from 'lucide-react';
 
@@ -155,7 +161,6 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'solarized'>('dark');
   
   // Custom router state
   const [path, setPath] = useState(window.location.pathname);
@@ -186,6 +191,31 @@ export default function App() {
   // Vote / Game control state (for local AI and P&P modes)
   const [localVote, setLocalVote] = useState<ActiveVote | null>(null);
   const [showGameControlConfirm, setShowGameControlConfirm] = useState<{ action: 'cancel' | 'end' | 'pause' | 'resume' } | null>(null);
+  const [latestReward, setLatestReward] = useState<LatestMatchReward | null>(null);
+  const [equippedCosmetics, setEquippedCosmetics] = useState(() => getCachedEquipped());
+
+  useEffect(() => {
+    const onProg = () => setEquippedCosmetics(getCachedEquipped());
+    window.addEventListener('sipa_progression_updated', onProg);
+    return () => window.removeEventListener('sipa_progression_updated', onProg);
+  }, []);
+
+  const loadLatestMatchReward = async (userId: string, matchId?: string) => {
+    if (!userId) return;
+    try {
+      const qs = matchId ? `?matchId=${encodeURIComponent(matchId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/api/users/${userId}/rewards/latest${qs}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.reward) {
+          setLatestReward(data.reward);
+        }
+      }
+      await fetchUserProgression(userId);
+    } catch (err) {
+      console.error('Error loading latest match reward:', err);
+    }
+  };
 
   // References to handle async loops cleanly
   const stateRef = useRef(gameState);
@@ -204,22 +234,11 @@ export default function App() {
     sound.setMuted(isMuted);
   }, [isMuted]);
 
-  // Load and apply theme
+  // Enforce dark mode and clean up any legacy light theme remnants
   useEffect(() => {
-    const savedTheme = localStorage.getItem('sipa_theme') as 'dark' | 'solarized' | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
+    localStorage.removeItem('sipa_theme');
+    document.documentElement.classList.remove('solarized-light');
   }, []);
-
-  useEffect(() => {
-    if (theme === 'solarized') {
-      document.documentElement.classList.add('solarized-light');
-    } else {
-      document.documentElement.classList.remove('solarized-light');
-    }
-    localStorage.setItem('sipa_theme', theme);
-  }, [theme]);
 
   // Save local game state to localStorage on updates (AI / Pass & Play)
   useEffect(() => {
@@ -900,6 +919,33 @@ export default function App() {
 
   // Return to core Welcome Menu
   const handleExitToLobby = () => {
+    const realUserId = currentUser?.id || myPlayerId;
+    // If exiting while a local game is in progress, persist it as canceled in history
+    if (
+      (gameState.status === 'playing' || gameState.status === 'round_end' || gameState.status === 'paused') &&
+      (gameState.gameMode === 'ai' || gameState.gameMode === 'pass_and_play') &&
+      gameState.players.length > 0
+    ) {
+      const matchPlayers = gameState.players.map(p => ({
+        id: p.id === 'human_id' ? realUserId : (p.id === 'pass_p1' ? realUserId : p.id),
+        name: p.name,
+        score: p.score,
+        isHost: p.isHost || false,
+        isAI: p.isAI,
+        avatarId: p.avatarId,
+      }));
+      fetch(`${API_BASE_URL}/api/matches/cancel-local`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+          gameMode: gameState.gameMode,
+          players: matchPlayers,
+          roundsHistory: gameState.roundsHistory || [],
+        }),
+      }).catch(err => console.error('Erreur sauvegarde match annulé:', err));
+    }
+
     localStorage.removeItem('sipa_active_room_id');
     if (localGameId) {
       localStorage.removeItem(`sipa_local_game_${localGameId}`);
@@ -927,6 +973,7 @@ export default function App() {
     setShowRoundSummary(false);
     setLocalVote(null);
     setShowGameControlConfirm(null);
+    setLatestReward(null);
     setOnlinePrivateHand([]);
   };
 
@@ -985,10 +1032,11 @@ export default function App() {
 
   // Execute game action directly (after confirmation or vote approval)
   const executeGameAction = async (action: 'cancel' | 'end' | 'pause' | 'resume') => {
+    const realUserId = currentUser?.id || myPlayerId;
     if (action === 'cancel') {
       // Save canceled match to DB for traceability
       const matchPlayers = gameState.players.map(p => ({
-        id: p.id === 'human_id' ? myPlayerId : (p.id === 'pass_p1' ? myPlayerId : p.id),
+        id: p.id === 'human_id' ? realUserId : (p.id === 'pass_p1' ? realUserId : p.id),
         name: p.name,
         score: p.score,
         isHost: p.isHost || false,
@@ -1005,36 +1053,47 @@ export default function App() {
           roundsHistory: gameState.roundsHistory || [],
         }),
       }).catch(err => console.error('Erreur sauvegarde match annulé:', err));
+      setGameState(prev => ({ ...prev, status: 'lobby' }));
       handleExitToLobby();
     } else if (action === 'end') {
-      // End match prematurely, highest scorer wins
+      // End match, highest scorer wins
       let highestScorePlayer = gameState.players[0];
       gameState.players.forEach(p => {
         if (p.score > highestScorePlayer.score) highestScorePlayer = p;
       });
       const winnerId = highestScorePlayer && highestScorePlayer.score > 0 ? highestScorePlayer.id : null;
-      
+      const mappedWinnerId = winnerId === 'human_id' ? realUserId : (winnerId === 'pass_p1' ? realUserId : winnerId);
+
       const matchPlayers = gameState.players.map(p => ({
-        id: p.id === 'human_id' ? myPlayerId : (p.id === 'pass_p1' ? myPlayerId : p.id),
+        id: p.id === 'human_id' ? realUserId : (p.id === 'pass_p1' ? realUserId : p.id),
         name: p.name,
         score: p.score,
         isHost: p.isHost || false,
         isAI: p.isAI,
         avatarId: p.avatarId,
       }));
-      fetch(`${API_BASE_URL}/api/matches/end-local`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
-          gameMode: gameState.gameMode,
-          players: matchPlayers,
-          winnerId: winnerId === 'human_id' ? myPlayerId : (winnerId === 'pass_p1' ? myPlayerId : winnerId),
-          roundsHistory: gameState.roundsHistory || [],
-        }),
-      }).catch(err => console.error('Erreur sauvegarde match terminé:', err));
-      
-      setGameState(prev => ({ ...prev, status: 'game_over', winnerId }));
+
+      setGameState(prev => ({ ...prev, status: 'game_over', winnerId, lastRoundResult: null }));
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/matches/end-local`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+            gameMode: gameState.gameMode,
+            players: matchPlayers,
+            winnerId: mappedWinnerId,
+            roundsHistory: gameState.roundsHistory || [],
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          await loadLatestMatchReward(realUserId, data?.matchId);
+        }
+      } catch (err) {
+        console.error('Erreur sauvegarde match terminé:', err);
+      }
     } else if (action === 'pause') {
       setGameState(prev => ({ ...prev, status: 'paused' }));
     } else if (action === 'resume') {
@@ -1065,23 +1124,30 @@ export default function App() {
     setShowPassOverlay(false);
   };
 
+  useEffect(() => {
+    if (gameState.status === 'game_over' && gameState.gameMode === 'online' && currentUser?.id) {
+      loadLatestMatchReward(currentUser.id);
+    }
+  }, [gameState.status, gameState.gameMode, currentUser?.id]);
+
   // Render current plays in the center playground
   const renderCentralZone = () => {
     const leadPlay = gameState.currentTrickCards[0];
     const startingSuit = leadPlay ? leadPlay.card.suit : null;
     const currentWinningPlay = leadPlay ? getCurrentWinningPlay(gameState.currentTrickCards, startingSuit as Suit) : null;
+    const tableStyle = getTableThemeStyle(equippedCosmetics.table);
 
     return (
-      <div className="relative w-full max-w-2xl mx-auto h-[190px] md:h-[300px] bg-gradient-to-b from-slate-900/40 via-slate-950/60 to-slate-950/80 border border-white/10 backdrop-blur-2xl rounded-[20px] md:rounded-[25px] p-4 flex flex-col items-center justify-center gap-2 md:gap-4 overflow-hidden shadow-2xl shadow-indigo-950/20">
+      <div className={`relative w-full max-w-2xl mx-auto h-[190px] md:h-[300px] border backdrop-blur-2xl rounded-[20px] md:rounded-[25px] p-4 flex flex-col items-center justify-center gap-2 md:gap-4 overflow-hidden shadow-2xl transition-colors duration-500 ${tableStyle.arenaBg}`}>
         {/* Glowing active suit kinetic field */}
         {startingSuit && (
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-indigo-500/5 opacity-40 blur-3xl pointer-events-none" />
         )}
         
         {/* Cyber Grid ring outline overlay */}
-        <div className="absolute inset-2 rounded-[32px] md:rounded-[48px] border border-dashed border-white/5 opacity-40 pointer-events-none" />
-        <div className="absolute inset-6 rounded-[24px] md:rounded-[36px] border border-white/5 opacity-20 pointer-events-none" />
-        <div className="absolute inset-0 bg-blue-500/2 blur-2xl rounded-full pointer-events-none" />
+        <div className={`absolute inset-2 rounded-[32px] md:rounded-[48px] border border-dashed ${tableStyle.ringBorder} opacity-50 pointer-events-none`} />
+        <div className={`absolute inset-6 rounded-[24px] md:rounded-[36px] border ${tableStyle.ringBorder} opacity-25 pointer-events-none`} />
+        <div className={`absolute inset-0 ${tableStyle.ambientGlow} blur-2xl rounded-full pointer-events-none`} />
 
         {/* Dynamic Glowing Halo indicating starting play suit */}
         {startingSuit && (
@@ -1217,8 +1283,7 @@ export default function App() {
         <AppLayout
           activeTab={activeTab}
           onNavigate={navigate}
-          theme={theme}
-          onToggleTheme={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
+          currentUser={currentUser}
           onLogout={handleLogout}
         >
           {renderLobbyPage()}
@@ -1342,13 +1407,6 @@ export default function App() {
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-emerald-450" />}
           </button>
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
-            className="p-2 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer"
-            title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-200" /> : <Moon className="w-4 h-4 text-slate-300" />}
-          </button>
         </div>
 
         {/* B. Mobile Toolbar view (flex on mobile, hidden on desktop) */}
@@ -1399,16 +1457,7 @@ export default function App() {
             </>
           )}
 
-          {/* 2. Theme Toggle Toggle (Dark/Light) */}
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'solarized' : 'dark')}
-            className="p-1.5 rounded-lg bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 hover:text-white transition cursor-pointer shadow-md"
-            title={`Passer au mode ${theme === 'dark' ? 'Clair Solarized' : 'Sombre'} (SIPA)`}
-          >
-            {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-200" /> : <Moon className="w-3.5 h-3.5 text-slate-300" />}
-          </button>
-
-          {/* 3. Hamburger Menu Button */}
+          {/* 2. Hamburger Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className={`p-1.5 rounded-lg border transition cursor-pointer relative z-40 shadow-md ${
@@ -1617,13 +1666,28 @@ export default function App() {
                   : 'border-white/10'
               }`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-base border ${avatar.color}`}>
-                    {avatar.symbol}
-                  </div>
-                  <div>
-                    <span className="font-bold text-white text-sm">
-                      {me.name} (Vous)
-                    </span>
+                  {(() => {
+                    const frameStyle = getFrameStyle(equippedCosmetics.frame);
+                    return (
+                      <div className={`w-9 h-9 rounded-xl ${frameStyle.ringClass} ${frameStyle.glowClass} relative shrink-0`}>
+                        <div className={`w-full h-full rounded-[9px] flex items-center justify-center font-bold text-base border border-white/15 ${avatar.color}`}>
+                          {avatar.symbol}
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 px-1 min-w-[15px] h-3.5 rounded-full bg-slate-950 border border-amber-400 text-[8px] font-mono font-black text-amber-300 flex items-center justify-center">
+                          {equippedCosmetics.level}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-white text-sm">
+                        {me.name} (Vous)
+                      </span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 uppercase">
+                        {equippedCosmetics.titleName}
+                      </span>
+                    </div>
                     <span className="text-xs text-amber-400 font-bold block">
                       Votre Score : {me.score} points
                     </span>
@@ -1720,80 +1784,8 @@ export default function App() {
 
       </main>
 
-      {/* 3. Rule / Help Modal */}
-      <AnimatePresence>
-        {showRuleModal && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowRuleModal(false)}
-              className="fixed inset-0 bg-black/60 z-40 cursor-pointer backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="fixed inset-4 max-w-lg mx-auto bg-slate-950/40 border border-white/15 backdrop-blur-2xl rounded-3xl z-50 p-6 shadow-2xl flex flex-col overflow-hidden"
-            >
-              <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4 bg-transparent text-blue-400">
-                <div className="flex items-center gap-2">
-                  <Info className="w-5 h-5 text-blue-400" />
-                  <h3 className="font-bold text-base font-sans tracking-tight text-white">Règles Stratégiques SIPA</h3>
-                </div>
-                <button
-                  onClick={() => setShowRuleModal(false)}
-                  className="p-1 px-2.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white text-xs font-bold font-mono transition"
-                >
-                  Fermer
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto pr-1 text-xs text-slate-200 space-y-4 leading-relaxed">
-                <div className="bg-white/5 p-3.5 rounded-xl border border-white/10">
-                  <h4 className="font-black text-white text-sm mb-1.5 uppercase tracking-wider font-mono">1. Prise de Main (Force)</h4>
-                  <p>
-                    Le meneur joue sa carte. Les autres doivent répondre avec la <strong>MÊME SORTE</strong> (Pique ♠, Coeur ♥, Carreau ♦, Trèfle ♣) s'ils en possèdent.
-                  </p>
-                  <p className="mt-1">
-                    La hiérarchie des puissances est : <strong>A &gt; K &gt; Q &gt; J &gt; 10 &gt; 9 &gt; 8 &gt; 7</strong>.
-                  </p>
-                  <p className="mt-1">
-                    Le joueur qui pose la carte de la même sorte la plus forte à la fin du tour d'enchère <strong>remporte le pli (Prend la main)</strong> et entamera le tour suivant !
-                  </p>
-                </div>
-
-                <div className="bg-white/5 p-3.5 rounded-xl border border-white/10">
-                  <h4 className="font-black text-white text-sm mb-1.5 uppercase tracking-wider font-mono">2. Contraintes de jeu</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Vous avez la sorte demandée :</strong> Vous ÊTES OBLIGÉ d'en jouer une (supérieure ou inférieure de votre choix).</li>
-                    <li><strong>Vous n'avez pas la sorte demandée :</strong> Vous devez sacrifier n'importe quelle carte de votre choix. Une carte sacrifiée ne peut jamais remporter le pli !</li>
-                  </ul>
-                </div>
-
-                <div className="bg-white/5 p-3.5 rounded-xl border border-white/10">
-                  <h4 className="font-black text-white text-sm mb-1.5 uppercase tracking-wider font-mono">3. Les Barèmes Spécifiques</h4>
-                  <p>La manche s'arrête brutalement dès que toutes les cartes ont été jouées (pli 5).</p>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    <li><strong>Si votre dernier pli d'étape est emporté avec un 7 :</strong> Vous gagnez <strong>2 points par dernier 7 gagnants successifs</strong> (+2 pour un, +4 pour deux, etc.).</li>
-                    <li><strong>Si votre dernier pli est un non-7 :</strong> Vous gagnez <strong>+1 point</strong> forfaitaire unique.</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-white/10 mt-4 text-center">
-                <button
-                  onClick={() => setShowRuleModal(false)}
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold text-xs transition shadow-lg inline-flex items-center gap-1 cursor-pointer"
-                >
-                  Compris ! Let's play !
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* 3. Rule / Help Right Side Drawer */}
+      <HelpDrawer isOpen={showRuleModal} onClose={() => setShowRuleModal(false)} />
 
       {/* 4. Round summaries popup modal */}
       <AnimatePresence>
@@ -1890,10 +1882,23 @@ export default function App() {
                     <RefreshCw className="w-3.5 h-3.5 animate-spin-reverse" /> Prochaine Manche
                   </button>
                   <button
-                    onClick={resetScoresAndRestart}
-                    className="py-3 px-4 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={() => {
+                      if (gameState.gameMode === 'online') {
+                        handleGameAction('end');
+                      } else {
+                        executeGameAction('end');
+                      }
+                    }}
+                    className="py-3 px-4 bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500 hover:text-slate-950 text-amber-300 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" /> Recommencer
+                    <Flag className="w-3.5 h-3.5" /> Terminer & Valider (+XP)
+                  </button>
+                  <button
+                    onClick={resetScoresAndRestart}
+                    className="py-3 px-3 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Réinitialiser les scores à 0"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -1903,7 +1908,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* 4b. Game Over Modal (premature end via vote) */}
+      {/* 4b. Game Over Modal (with XP & Rewards celebration) */}
       <AnimatePresence>
         {gameState.status === 'game_over' && !gameState.lastRoundResult && (
           <>
@@ -1911,31 +1916,110 @@ export default function App() {
               initial={{ opacity: 0 }}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
               <motion.div
                 initial={{ scale: 0.9, y: 30, opacity: 0 }}
                 animate={{ scale: 1, y: 0, opacity: 1 }}
-                className="w-full max-w-lg bg-slate-950/45 border border-white/10 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl relative overflow-hidden text-center space-y-6"
+                className="w-full max-w-lg bg-slate-950/90 border border-white/15 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl relative overflow-hidden text-center space-y-5 my-auto"
               >
                 <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500" />
                 
-                <div className="mx-auto w-16 h-16 rounded-full bg-orange-400/10 border border-orange-400/30 flex items-center justify-center text-orange-400">
-                  <Flag className="w-10 h-10" />
+                <div className="mx-auto w-14 h-14 rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400">
+                  <Crown className="w-8 h-8" />
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-xs font-mono text-orange-400 font-bold uppercase tracking-widest">
-                    Partie Terminée Prématurément
+                  <span className="text-xs font-mono text-amber-400 font-bold uppercase tracking-widest">
+                    Partie Terminée & Enregistrée
                   </span>
-                  <h3 className="text-3xl font-black text-white leading-none">
-                    Fin de Partie
+                  <h3 className="text-2xl md:text-3xl font-black text-white leading-none">
+                    Bilan de la Partie
                   </h3>
                   {gameState.winnerId && (
-                    <p className="text-2xl font-black text-amber-400 mt-2">
-                      {gameState.players.find(p => p.id === gameState.winnerId)?.name} en tête !
+                    <p className="text-xl font-black text-amber-400 mt-1.5">
+                      Vainqueur : {gameState.players.find(p => p.id === gameState.winnerId)?.name} !
                     </p>
                   )}
                 </div>
+
+                {/* XP & Rewards Celebration Box */}
+                {latestReward && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-indigo-950/60 border border-amber-400/30 text-left space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-black uppercase tracking-wider text-amber-300">
+                          Niveau {latestReward.after.level}
+                        </span>
+                        {latestReward.after.level > latestReward.before.level && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono text-[10px] font-black uppercase animate-bounce">
+                            LEVEL UP !
+                          </span>
+                        )}
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-mono text-xs font-black">
+                        +{latestReward.xpGained} XP
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{
+                            width: `${
+                              latestReward.after.isMaxLevel
+                                ? 100
+                                : Math.min(
+                                    100,
+                                    Math.round(
+                                      (latestReward.after.xpIntoLevel /
+                                        Math.max(1, latestReward.after.xpForNextLevel)) *
+                                        100
+                                    )
+                                  )
+                            }%`,
+                          }}
+                          transition={{ duration: 0.7, ease: 'easeOut' }}
+                          className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 rounded-full"
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                        <span>Total : {latestReward.after.xp} XP</span>
+                        <span>
+                          {latestReward.after.isMaxLevel
+                            ? 'NIVEAU MAX'
+                            : `${latestReward.after.xpIntoLevel} / ${latestReward.after.xpForNextLevel} XP`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(latestReward.newTitles.length > 0 || latestReward.newCosmetics.length > 0) && (
+                      <div className="pt-2 border-t border-white/10 space-y-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300 block">
+                          ★ Nouvelles Récompenses Débloquées :
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {latestReward.newTitles.map((t) => (
+                            <span
+                              key={t.id}
+                              className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-200"
+                            >
+                              Titre : {t.name}
+                            </span>
+                          ))}
+                          {latestReward.newCosmetics.map((c) => (
+                            <span
+                              key={c.id}
+                              className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-400/40 text-purple-200"
+                            >
+                              Cosmétique : {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Scores */}
                 <div className="space-y-2 text-left">
