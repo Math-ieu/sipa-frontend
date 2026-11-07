@@ -410,6 +410,9 @@ export function cacheProgression(data: ProgressionData): void {
       table: data.equipped?.table || 'table_cosmos',
     };
     localStorage.setItem(EQUIPPED_STORAGE_KEY, JSON.stringify(cached));
+    if (data.userId) {
+      localStorage.setItem(`sipa_full_progression_${data.userId}`, JSON.stringify(data));
+    }
     window.dispatchEvent(new CustomEvent('sipa_progression_updated', { detail: data }));
   } catch {
     // ignore storage errors
@@ -420,14 +423,22 @@ export async function fetchUserProgression(playerId: string): Promise<Progressio
   if (!playerId) return null;
   try {
     const res = await fetch(`${API_BASE_URL}/api/users/${playerId}/progression`);
-    if (!res.ok) return null;
-    const data: ProgressionData = await res.json();
-    cacheProgression(data);
-    return data;
+    if (res.ok) {
+      const data: ProgressionData = await res.json();
+      cacheProgression(data);
+      return data;
+    }
   } catch (err) {
-    console.error('Error fetching user progression:', err);
-    return null;
+    console.warn('Mode hors-ligne ou erreur réseau (progression):', err);
   }
+
+  // Fallback to locally cached progression when offline
+  try {
+    const raw = localStorage.getItem(`sipa_full_progression_${playerId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+
+  return null;
 }
 
 export async function equipProgressionItem(

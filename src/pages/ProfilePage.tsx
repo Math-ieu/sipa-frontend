@@ -179,7 +179,7 @@ export function ProfilePage({ currentUser, onLogin }: ProfilePageProps) {
         setEditError(data.error || 'Une erreur est survenue lors de la mise à jour.');
       } else {
         sound.playRoundVictory();
-        setEditSuccess('Passeport mis à jour avec succès !');
+        setEditSuccess('Profil mis à jour avec succès !');
         onLogin(data.user, data.token);
 
         setCurrentPassword('');
@@ -473,7 +473,7 @@ export function ProfilePage({ currentUser, onLogin }: ProfilePageProps) {
         >
           <div className="space-y-2">
             <label className="text-xs font-mono font-bold text-slate-300 uppercase tracking-widest block">
-              Pseudonyme de Duelliste
+              Pseudonyme
             </label>
             <div className="relative max-w-md">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
@@ -785,7 +785,7 @@ export function ProfilePage({ currentUser, onLogin }: ProfilePageProps) {
                   Cadres d'Avatar
                 </h4>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Illuminez votre sceau dans l'en-tête, le passeport et autour de la table de jeu
+                  Personnalisez le contour de votre avatar sur votre profil et autour de la table
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

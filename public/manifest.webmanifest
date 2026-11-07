@@ -61,9 +61,9 @@
       "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Passeport & Récompenses",
-      "short_name": "Passeport",
-      "description": "Voir votre niveau, vos titres et vos cosmétiques",
+      "name": "Mon Profil",
+      "short_name": "Profil",
+      "description": "Voir votre profil, vos titres et vos récompenses",
       "url": "/profil",
       "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
     }

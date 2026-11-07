@@ -7,8 +7,8 @@
  * - Assets statiques (JS, CSS, icônes, polices) : Stale-While-Revalidate
  */
 
-const CACHE_NAME = 'sipa-arena-pwa-v1';
-const API_CACHE_NAME = 'sipa-arena-api-v1';
+const CACHE_NAME = 'sipa-arena-pwa-v2';
+const API_CACHE_NAME = 'sipa-arena-api-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -93,29 +93,32 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Navigation SPA (routes /arene-de-jeu, /profil, /stats...) : Network-First -> /index.html
+  // 2. Navigation SPA (routes /arene-de-jeu, /arene-de-jeu/ia, /profil, /login...) : Network-First -> /index.html
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          }
           return response;
         })
         .catch(async () => {
           const cachedIndex = await caches.match('/index.html');
-          return cachedIndex || caches.match('/');
+          const cachedRoot = await caches.match('/');
+          return cachedIndex || cachedRoot;
         })
     );
     return;
   }
 
-  // 3. Assets statiques (JS, CSS, images, icônes, polices) : Stale-While-Revalidate
+  // 3. Assets statiques (JS, CSS, images, icônes, polices, webmanifest) : Stale-While-Revalidate
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       const networkFetch = fetch(request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0)) {
             const clone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }

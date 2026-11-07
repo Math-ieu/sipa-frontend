@@ -14,6 +14,8 @@ import {
   RefreshCw,
   Sparkles,
   ShieldAlert,
+  WifiOff,
+  Bot,
 } from 'lucide-react';
 import { sound } from '../utils/sound';
 
@@ -125,6 +127,23 @@ export function OnlineConfigPage({
 
         {/* Online Content Grid */}
         <div className="space-y-6 pt-6">
+          {typeof navigator !== 'undefined' && !navigator.onLine && (
+            <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-sans">
+              <div className="flex items-center gap-2">
+                <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Vous êtes hors-ligne. Le mode multijoueur requiert une connexion Internet. Jouez plutôt contre l'IA !</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate('/arene-de-jeu/ia')}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase text-[10px] shrink-0 cursor-pointer flex items-center gap-1.5"
+              >
+                <Bot className="w-3.5 h-3.5" />
+                <span>Jouer contre l'IA</span>
+              </button>
+            </div>
+          )}
+
           {onlineError && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}

@@ -146,7 +146,7 @@ export function OnlineWaitingLobby({
             </span>
             {players.length < 2 && (
               <span className="text-amber-400 font-bold animate-pulse text-[11px]">
-                En attente d'au moins 1 autre duelliste...
+                En attente d'au moins 1 autre joueur...
               </span>
             )}
           </div>

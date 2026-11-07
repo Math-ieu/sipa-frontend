@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Bot,
@@ -14,6 +15,7 @@ import {
   ShieldAlert,
   Play,
   CheckCircle2,
+  WifiOff,
 } from 'lucide-react';
 import { sound } from '../utils/sound';
 
@@ -22,7 +24,26 @@ interface ArenaPageProps {
 }
 
 export function ArenaPage({ onNavigate }: ArenaPageProps) {
-  const handleSelectMode = (path: string) => {
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  const [offlineNotice, setOfflineNotice] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleSelectMode = (path: string, requiresOnline?: boolean) => {
+    if (requiresOnline && !isOnline) {
+      sound.playMenuClick();
+      setOfflineNotice(true);
+      return;
+    }
     sound.playModeSelect();
     onNavigate(path);
   };
@@ -33,18 +54,18 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
       path: '/arene-de-jeu/ia',
       title: 'Solo contre IA',
       tagline: 'Entraînement Tactique',
-      badge: 'Instantané',
-      badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+      badge: isOnline ? 'Instantané' : 'Jouable Hors-Ligne',
+      badgeColor: isOnline ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
       icon: Bot,
       accentGradient: 'from-blue-600 via-indigo-600 to-cyan-500',
       glowColor: 'group-hover:shadow-[0_0_35px_rgba(59,130,246,0.3)]',
       borderColor: 'border-blue-500/25',
       borderHover: 'group-hover:border-blue-400',
       description:
-        'Affrontez des intelligences artificielles aux styles adaptatifs. Aucun temps mort, idéal pour tester vos stratégies.',
+        'Affrontez des intelligences artificielles aux styles adaptatifs. Fonctionne 100% hors-ligne sans connexion Internet.',
       features: [
         '1 à 3 adversaires robots',
-        'Partie sans chrono stressant',
+        '100% jouable hors-ligne',
         'Parfait pour s’entraîner aux 7',
       ],
       cta: 'Défier l’IA',
@@ -54,8 +75,8 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
       path: '/arene-de-jeu/local',
       title: 'Passer & Jouer',
       tagline: 'Table Locale en Soirée',
-      badge: 'Même Écran',
-      badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+      badge: isOnline ? 'Même Écran' : 'Jouable Hors-Ligne',
+      badgeColor: isOnline ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
       icon: Users,
       accentGradient: 'from-purple-600 via-fuchsia-600 to-pink-500',
       glowColor: 'group-hover:shadow-[0_0_35px_rgba(168,85,247,0.3)]',
@@ -65,7 +86,7 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
         'Jouez à 2, 3 ou 4 autour d’un seul smartphone ou ordinateur avec le masquage automatique des cartes secrètes.',
       features: [
         'De 2 à 4 joueurs en local',
-        'Masque de confidentialité sécurisé',
+        '100% jouable hors-ligne',
         'Idéal sur canapé ou en pause',
       ],
       cta: 'Lancer la table locale',
@@ -75,13 +96,13 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
       path: '/arene-de-jeu/multijoueur',
       title: 'Arène en Ligne',
       tagline: 'Multijoueur Temps Réel',
-      badge: 'En Direct',
-      badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      badge: isOnline ? 'En Direct' : 'Hors-Ligne',
+      badgeColor: isOnline ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-slate-700/50 text-slate-400 border-slate-600/30',
       icon: Globe,
       accentGradient: 'from-amber-500 via-orange-600 to-red-500',
       glowColor: 'group-hover:shadow-[0_0_35px_rgba(245,158,11,0.3)]',
-      borderColor: 'border-amber-500/25',
-      borderHover: 'group-hover:border-amber-400',
+      borderColor: isOnline ? 'border-amber-500/25' : 'border-white/10 opacity-70',
+      borderHover: isOnline ? 'group-hover:border-amber-400' : '',
       description:
         'Défiez des joueurs en direct via WebSocket. Créez un salon privé avec un code à 6 chiffres ou rejoignez vos amis.',
       features: [
@@ -89,8 +110,9 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
         'Chat textuel en direct dans le salon',
         'Sauvegarde de match & classements',
       ],
-      cta: 'Entrer dans l’Arène',
-      isLive: true,
+      cta: isOnline ? 'Entrer dans l’Arène' : 'Connexion requise',
+      isLive: isOnline,
+      requiresOnline: true,
     },
   ];
 
@@ -127,6 +149,28 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
         </div>
       </div>
 
+      {/* Offline Notice banner if user tried to access online mode */}
+      {offlineNotice && (
+        <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-sans shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Le multijoueur requiert une connexion Internet. Les modes <strong>Solo contre l'IA</strong> et <strong>Passer & Jouer</strong> sont 100% jouables hors-ligne !
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setOfflineNotice(false);
+              handleSelectMode('/arene-de-jeu/ia');
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase text-[10px] shrink-0 cursor-pointer"
+          >
+            Lancer l'IA hors-ligne
+          </button>
+        </div>
+      )}
+
       {/* 2. THREE GRAND GAME MODE PORTALS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 items-stretch">
         {gameModes.map((mode, index) => {
@@ -140,7 +184,7 @@ export function ArenaPage({ onNavigate }: ArenaPageProps) {
               transition={{ duration: 0.3, delay: index * 0.08 }}
               whileHover={{ y: -6, scale: 1.015 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleSelectMode(mode.path)}
+              onClick={() => handleSelectMode(mode.path, mode.requiresOnline)}
               className={`group relative rounded-3xl p-6 md:p-7 flex flex-col justify-between text-left cursor-pointer transition-all duration-300 select-none overflow-hidden bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-slate-950 border ${mode.borderColor} ${mode.borderHover} ${mode.glowColor} shadow-xl`}
             >
               {/* Hover radial light */}

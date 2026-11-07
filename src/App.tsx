@@ -130,19 +130,31 @@ export default function App() {
   // Identifiant unique par partie locale (IA / Pass & Play) pour des URLs distinctes
   const [localGameId, setLocalGameId] = useState<string | null>(null);
 
+  // Redirection URL memorization for when users are unauthenticated
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState<string | null>(null);
+
   // Authentication callbacks
   const handleLogin = (user: { id: string; username: string; avatarId: string }, token: string) => {
     localStorage.setItem('sipa_auth_token', token);
     localStorage.setItem('sipa_local_player_id', user.id);
     localStorage.setItem('sipa_player_pseudo', user.username);
+    localStorage.setItem('sipa_cached_user', JSON.stringify(user));
     setMyPlayerId(user.id);
     setCurrentUser(user);
 
-    // Redirect if they have an active invitation room code
-    if (inviteRoomId) {
-      window.history.replaceState({}, '', '/arene-de-jeu/multijoueur');
-      setPath('/arene-de-jeu/multijoueur');
+    // Determine target path after successful login
+    let targetPath = '/arene-de-jeu';
+    if ((user as any).isOffline) {
+      targetPath = '/arene-de-jeu/ia';
+    } else if (inviteRoomId) {
+      targetPath = '/arene-de-jeu/multijoueur';
+    } else if (redirectAfterLogin && !redirectAfterLogin.startsWith('/login') && !redirectAfterLogin.startsWith('/connexion')) {
+      targetPath = redirectAfterLogin;
     }
+
+    setRedirectAfterLogin(null);
+    window.history.replaceState({}, '', targetPath);
+    setPath(targetPath);
   };
 
   const handleLogout = async () => {
@@ -154,7 +166,12 @@ export default function App() {
     localStorage.removeItem('sipa_local_player_id');
     localStorage.removeItem('sipa_player_pseudo');
     localStorage.removeItem('sipa_guest_player_id');
+    localStorage.removeItem('sipa_cached_user');
+    localStorage.removeItem('sipa_offline_user');
     setCurrentUser(null);
+    setGameState(prev => ({ ...prev, status: 'lobby' }));
+    window.history.replaceState({}, '', '/login');
+    setPath('/login');
   };
   
   // UI states
@@ -164,6 +181,7 @@ export default function App() {
   
   // Custom router state
   const [path, setPath] = useState(window.location.pathname);
+  const isAuthPath = path === '/login' || path === '/connexion';
 
   const navigate = (newPath: string) => {
     window.history.pushState({}, '', newPath);
@@ -177,6 +195,28 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Protected route guard: sync route state when user auth changes or when browser popstate fires
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    if (!currentUser) {
+      // Unauthenticated user attempting to access protected routes -> route to /login
+      if (path !== '/login' && path !== '/connexion') {
+        if (path !== '/' && !path.startsWith('/login') && !path.startsWith('/connexion')) {
+          setRedirectAfterLogin(path);
+        }
+        window.history.replaceState({}, '', '/login');
+        setPath('/login');
+      }
+    } else {
+      // Authenticated user landing on /login or /connexion -> route to arena
+      if (path === '/login' || path === '/connexion') {
+        window.history.replaceState({}, '', '/arene-de-jeu');
+        setPath('/arene-de-jeu');
+      }
+    }
+  }, [currentUser, path, isAuthLoading]);
 
   const activeTab: 'arena' | 'profile' | 'stats' = path === '/profil' ? 'profile' : path === '/stats' ? 'stats' : 'arena';
   
@@ -252,6 +292,65 @@ export default function App() {
     }
   }, [localGameId, gameState, myPlayerId, hiddenHands]);
 
+  // Save an offline match to pending list for later synchronization
+  const savePendingOfflineMatch = (type: 'end' | 'cancel', payload: any) => {
+    try {
+      const raw = localStorage.getItem('sipa_offline_pending_matches');
+      const list = raw ? JSON.parse(raw) : [];
+      list.push({ type, payload, timestamp: Date.now() });
+      localStorage.setItem('sipa_offline_pending_matches', JSON.stringify(list));
+      console.log('Match sauvegardé localement en attente de reconnexion (mode hors-ligne)');
+    } catch (e) {
+      console.warn('Erreur sauvegarde locale match hors-ligne:', e);
+    }
+  };
+
+  // Sync any offline matches with the backend server when connection is restored
+  const syncPendingOfflineMatches = async () => {
+    const pendingStr = localStorage.getItem('sipa_offline_pending_matches');
+    if (!pendingStr) return;
+    try {
+      const list: Array<{ type: 'end' | 'cancel'; payload: any }> = JSON.parse(pendingStr);
+      if (!Array.isArray(list) || list.length === 0) return;
+
+      const remaining: typeof list = [];
+      for (const item of list) {
+        try {
+          const endpoint = item.type === 'end' ? '/api/matches/end-local' : '/api/matches/cancel-local';
+          const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item.payload),
+          });
+          if (!res.ok) {
+            remaining.push(item);
+          }
+        } catch (e) {
+          remaining.push(item);
+        }
+      }
+      if (remaining.length === 0) {
+        localStorage.removeItem('sipa_offline_pending_matches');
+        console.log('Tous les matchs joués hors ligne ont été synchronisés avec succès !');
+      } else {
+        localStorage.setItem('sipa_offline_pending_matches', JSON.stringify(remaining));
+      }
+    } catch (err) {
+      console.warn('Erreur synchronisation matchs hors-ligne:', err);
+    }
+  };
+
+  useEffect(() => {
+    const handleOnline = () => {
+      syncPendingOfflineMatches();
+    };
+    window.addEventListener('online', handleOnline);
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      syncPendingOfflineMatches();
+    }
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   // Load / Setup unique player identities and sessions
   useEffect(() => {
     const setupIdentity = async () => {
@@ -271,6 +370,7 @@ export default function App() {
         try {
           const data = await getMe(token);
           if (data && data.user) {
+            localStorage.setItem('sipa_cached_user', JSON.stringify(data.user));
             setCurrentUser(data.user);
             setMyPlayerId(data.user.id);
             localStorage.setItem('sipa_local_player_id', data.user.id);
@@ -359,16 +459,106 @@ export default function App() {
               }
             }
 
+            if (window.location.pathname === '/login' || window.location.pathname === '/connexion') {
+              window.history.replaceState({}, '', '/arene-de-jeu');
+              setPath('/arene-de-jeu');
+            }
+
             setIsAuthLoading(false);
             return;
           }
         } catch (err) {
-          console.error("Failed to restore session:", err);
-          localStorage.removeItem('sipa_auth_token');
+          console.warn("Vérification session impossible (mode hors-ligne ou réseau):", err);
+          const cachedUserStr = localStorage.getItem('sipa_cached_user');
+          if (cachedUserStr) {
+            try {
+              const cachedUser = JSON.parse(cachedUserStr);
+              setCurrentUser(cachedUser);
+              setMyPlayerId(cachedUser.id);
+
+              // 1. Gestion des parties locales (IA / Pass & Play) hors-ligne
+              const localMatch = window.location.pathname.match(/\/arene-de-jeu\/(ia|local)\/([a-zA-Z0-9-]+)/i);
+              if (localMatch) {
+                const gameId = localMatch[2];
+                const savedLocalGameStr = localStorage.getItem(`sipa_local_game_${gameId}`);
+                if (savedLocalGameStr) {
+                  try {
+                    const savedLocalGame = JSON.parse(savedLocalGameStr);
+                    setGameState(savedLocalGame.gameState);
+                    setLocalGameId(gameId);
+                    setMyPlayerId(savedLocalGame.myPlayerId);
+                    setHiddenHands(savedLocalGame.hiddenHands || []);
+                    setIsAuthLoading(false);
+                    return;
+                  } catch (e) {
+                    localStorage.removeItem(`sipa_local_game_${gameId}`);
+                  }
+                }
+                window.history.replaceState({}, '', '/arene-de-jeu');
+                setPath('/arene-de-jeu');
+              }
+
+              if (window.location.pathname === '/login' || window.location.pathname === '/connexion') {
+                window.history.replaceState({}, '', '/arene-de-jeu');
+                setPath('/arene-de-jeu');
+              }
+              setIsAuthLoading(false);
+              return;
+            } catch (e) {
+              console.error("Erreur lecture utilisateur en cache:", e);
+            }
+          }
+
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            localStorage.removeItem('sipa_auth_token');
+          }
         }
       }
 
+      // Gestion du mode hors-ligne sans compte ou profil invité
+      const offlineUserStr = localStorage.getItem('sipa_offline_user');
+      const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+      if (offlineUserStr) {
+        try {
+          const guestUser = JSON.parse(offlineUserStr);
+          setCurrentUser(guestUser);
+          setMyPlayerId(guestUser.id);
+          setIsAuthLoading(false);
+          return;
+        } catch (e) {}
+      } else if (isDeviceOffline) {
+        // En mode hors-ligne sans compte : création transparente d'un profil joueur local
+        const localId = localStorage.getItem('sipa_local_player_id') || ('offline_' + Math.random().toString(36).substring(2, 9));
+        const localName = localStorage.getItem('sipa_player_pseudo') || 'Joueur';
+        const autoGuest = {
+          id: localId,
+          username: localName,
+          avatarId: 'av1',
+          isOffline: true,
+        };
+        localStorage.setItem('sipa_offline_user', JSON.stringify(autoGuest));
+        localStorage.setItem('sipa_cached_user', JSON.stringify(autoGuest));
+        localStorage.setItem('sipa_local_player_id', localId);
+        localStorage.setItem('sipa_player_pseudo', localName);
+        setCurrentUser(autoGuest);
+        setMyPlayerId(localId);
+        setIsAuthLoading(false);
+        if (window.location.pathname === '/login' || window.location.pathname === '/connexion') {
+          window.history.replaceState({}, '', '/arene-de-jeu/ia');
+          setPath('/arene-de-jeu/ia');
+        }
+        return;
+      }
+
       setCurrentUser(null);
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/connexion') {
+        if (window.location.pathname !== '/') {
+          setRedirectAfterLogin(window.location.pathname + window.location.search);
+        }
+        window.history.replaceState({}, '', '/login');
+        setPath('/login');
+      }
       setIsAuthLoading(false);
     };
     setupIdentity();
@@ -376,6 +566,8 @@ export default function App() {
 
   // Sync room ID and tabs with URL pathnames
   useEffect(() => {
+    if (!currentUser || isAuthLoading || isAuthPath) return;
+
     if (gameState.gameMode === 'online' && gameState.roomId) {
       const expectedPath = `/arene-de-jeu/multijoueur/${gameState.roomId}`;
       if (window.location.pathname !== expectedPath) {
@@ -934,16 +1126,19 @@ export default function App() {
         isAI: p.isAI,
         avatarId: p.avatarId,
       }));
+      const cancelPayload = {
+        roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+        gameMode: gameState.gameMode,
+        players: matchPlayers,
+        roundsHistory: gameState.roundsHistory || [],
+      };
       fetch(`${API_BASE_URL}/api/matches/cancel-local`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
-          gameMode: gameState.gameMode,
-          players: matchPlayers,
-          roundsHistory: gameState.roundsHistory || [],
-        }),
-      }).catch(err => console.error('Erreur sauvegarde match annulé:', err));
+        body: JSON.stringify(cancelPayload),
+      }).catch(err => {
+        savePendingOfflineMatch('cancel', cancelPayload);
+      });
     }
 
     localStorage.removeItem('sipa_active_room_id');
@@ -1043,16 +1238,19 @@ export default function App() {
         isAI: p.isAI,
         avatarId: p.avatarId,
       }));
+      const cancelPayload = {
+        roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+        gameMode: gameState.gameMode,
+        players: matchPlayers,
+        roundsHistory: gameState.roundsHistory || [],
+      };
       fetch(`${API_BASE_URL}/api/matches/cancel-local`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
-          gameMode: gameState.gameMode,
-          players: matchPlayers,
-          roundsHistory: gameState.roundsHistory || [],
-        }),
-      }).catch(err => console.error('Erreur sauvegarde match annulé:', err));
+        body: JSON.stringify(cancelPayload),
+      }).catch(err => {
+        savePendingOfflineMatch('cancel', cancelPayload);
+      });
       setGameState(prev => ({ ...prev, status: 'lobby' }));
       handleExitToLobby();
     } else if (action === 'end') {
@@ -1075,24 +1273,29 @@ export default function App() {
 
       setGameState(prev => ({ ...prev, status: 'game_over', winnerId, lastRoundResult: null }));
 
+      const endMatchPayload = {
+        roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
+        gameMode: gameState.gameMode,
+        players: matchPlayers,
+        winnerId: mappedWinnerId,
+        roundsHistory: gameState.roundsHistory || [],
+      };
+
       try {
         const res = await fetch(`${API_BASE_URL}/api/matches/end-local`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomId: gameState.gameMode === 'ai' ? 'local_ai' : 'local_pass',
-            gameMode: gameState.gameMode,
-            players: matchPlayers,
-            winnerId: mappedWinnerId,
-            roundsHistory: gameState.roundsHistory || [],
-          }),
+          body: JSON.stringify(endMatchPayload),
         });
         if (res.ok) {
           const data = await res.json();
           await loadLatestMatchReward(realUserId, data?.matchId);
+        } else {
+          savePendingOfflineMatch('end', endMatchPayload);
         }
       } catch (err) {
-        console.error('Erreur sauvegarde match terminé:', err);
+        console.warn('Mode hors-ligne : sauvegarde locale du match terminé', err);
+        savePendingOfflineMatch('end', endMatchPayload);
       }
     } else if (action === 'pause') {
       setGameState(prev => ({ ...prev, status: 'paused' }));
@@ -1232,9 +1435,20 @@ export default function App() {
     );
   }
 
-  // 2. Mandatory Authentication Gate
-  if (!currentUser) {
-    return <AuthPage onLogin={handleLogin} />;
+  // 2. Mandatory Authentication Gate / Dedicated Login Page
+  if (!currentUser || isAuthPath) {
+    return (
+      <AuthPage
+        onLogin={handleLogin}
+        onNavigate={navigate}
+        currentPath={path}
+        redirectNotice={
+          redirectAfterLogin && !redirectAfterLogin.includes('login')
+            ? `Veuillez vous connecter pour accéder à ${redirectAfterLogin}`
+            : undefined
+        }
+      />
+    );
   }
 
   // Handle welcome lobby

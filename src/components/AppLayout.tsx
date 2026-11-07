@@ -145,8 +145,8 @@ export function AppLayout({
     },
     {
       id: 'profile',
-      label: 'Passeport Joueur',
-      shortLabel: 'Passeport',
+      label: 'Mon Profil',
+      shortLabel: 'Profil',
       path: '/profil',
       icon: Shield,
       color: 'from-blue-400 to-indigo-500',
@@ -401,7 +401,7 @@ export function AppLayout({
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                           >
                             <Shield className="w-4 h-4 text-blue-400" />
-                            <span>Passeport, Titres & Cosmétiques</span>
+                            <span>Mon Profil</span>
                           </button>
 
                           <button
